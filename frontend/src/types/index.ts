@@ -2,16 +2,15 @@ export interface Client {
   id: string;
   name: string;
   email: string;
+  companyName?: string;
   location: string;
   idNumber: string;
   activationDate: string;
+  createdAt: string;
   isActive: boolean;
-  purchasesLastMonth: number;
-  purchasesLast3Months: number;
-  purchasesLast6Months: number;
-  purchasesLastYear: number;
-  totalPurchases: number;
+  approvedAt: string | null;
   commonProducts: CommonProduct[];
+  _count?: { orders: number; claims: number };
 }
 
 export interface CommonProduct {
@@ -65,6 +64,7 @@ export interface ClientFormData {
   email: string;
   location: string;
   idNumber: string;
+  password?: string;
 }
 
 export interface TruckFormData {
@@ -126,6 +126,7 @@ export interface Order {
   totalAmount: number;
   status: OrderStatus;
   estimatedDeliveryDate: string | null;
+  adminNote: string | null;
   createdAt: string;
   updatedAt: string;
 }

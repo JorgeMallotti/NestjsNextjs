@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users (Admin & Client) ─────────────────────────────
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  name            String
+  role            String   @default("client") // "admin" | "client"
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Client-specific fields (null for admins)
+  companyName     String?
+  location        String?
+  idNumber        String?
+  activationDate  DateTime?
+  approvedAt      DateTime?      // null = pending approval, Date = approved
+
+  // Relations
+  orders          Order[]
+  claims          Claim[]
+  commonProducts  CommonProduct[]
+}
+
+// ─── Products ───────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  brand     String
+  type      String   // CPU, GPU, RAM, Storage, etc.
+  price     Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orderItems  OrderItem[]
+  claims      Claim[]
+}
+
+// ─── Trucks ─────────────────────────────────────────────
+
+model Truck {
+  id          String   @id @default(cuid())
+  plateNumber String   @unique
+  model       String
+  capacity    Float    // kg
+  kilometrage Float
+  status      String   @default("available") // available | in_use | under_repair | disabled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Workers ────────────────────────────────────────────
+
+model Worker {
+  id        String   @id @default(cuid())
+  name      String
+  position  String
+  startDate DateTime
+  status    String   @default("active") // active | on_vacation | sick_leave | inactive
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Orders ─────────────────────────────────────────────
+
+model Order {
+  id                   String       @id @default(cuid())
+  clientId             String
+  client               User         @relation(fields: [clientId], references: [id])
+  items                OrderItem[]
+  claims               Claim[]
+  totalAmount          Float
+  status               String       @default("pending_approval") // pending_approval | confirmed | shipped | delivered | cancelled
+  estimatedDeliveryDate DateTime?
+  adminNote            String?      // Optional message from admin when approving/rejecting
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String
+  quantity    Int
+  unitPrice   Float
+
+  @@unique([orderId, productId])
+}
+
+// ─── Claims ─────────────────────────────────────────────
+
+model Claim {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      User     @relation(fields: [clientId], references: [id])
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  productName String
+  reason      String
+  description String
+  status      String   @default("pending") // pending | in_process | approved | refused
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Common Products (per-client frequency data) ────────
+
+model CommonProduct {
+  id        String @id @default(cuid())
+  clientId  String
+  client    User   @relation(fields: [clientId], references: [id])
+  type      String
+  quantity  Int
+  frequency String // weekly | biweekly | monthly | quarterly
+
+  @@unique([clientId, type])
+}

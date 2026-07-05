@@ -626,6 +626,15 @@ The agent MUST enforce these on every endpoint:
 - **Agent MUST NEVER read the contents of `.env` files.** Environment variables are sensitive.
 - **Agent MAY read and modify `.env.example`** to provide a template of required variables with placeholder values (e.g. `your_jwt_secret_here`), never real secrets.
 - **Application code MUST always reference `process.env` variables from `.env`**, never from `.env.example`.
+- **API endpoints MUST NEVER include user IDs, tokens, or sensitive identifiers in the URL path or query parameters.** User identification MUST come exclusively from the JWT token extracted server-side via `@CurrentUser()` decorator. This prevents:
+  - URL tampering (a client modifying another client's ID in the URL)
+  - Token leakage through server logs, referrer headers, and browser history
+  - Accidental exposure in error messages or stack traces
+- **Client-specific data** (e.g., "my orders", "my claims") MUST use dedicated endpoints like `/api/orders/my` or `/api/claims/my` that extract the user from the JWT. Never use patterns like `/api/orders/user/:userId` or `/api/orders?clientId=xxx`.
+- **The frontend NEVER sends the user ID in API requests** for client-scoped resources. The only exception is admin-level operations where the admin explicitly targets a specific client, and even then the admin's own ID comes from the JWT — never from a URL parameter controlled by the client.
+- **Tokens are sent ONLY via the `Authorization: Bearer <token>` header**, never in the URL, request body, or cookies that can be accessed by client-side JavaScript.
+- **⚠️ Current state (dev):** tokens are stored in `localStorage` via `auth.ts`. This is acceptable during development but **vulnerable to XSS in production**.
+- **🏭 Production goal:** migrate to **HTTP-only, Secure, SameSite cookies** with a refresh token pattern. The backend sets the cookie on login (`Set-Cookie`), the browser sends it automatically, and JavaScript never touches the raw JWT. Until this migration happens, treat token storage as **documented tech debt**.
 
 ---
 

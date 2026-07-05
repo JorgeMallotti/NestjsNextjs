@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { loginAdmin, saveAuth } from "@/lib/api/auth";
 
 export default function AdminLoginPage() {
   const params = useParams();
+  const router = useRouter();
   const lang = (params.lang as string) ?? "en";
   const strings = getStrings(lang);
 
@@ -52,12 +54,16 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError("");
 
-    // Simulate authentication
-    await new Promise((r) => setTimeout(r, 1000));
-
-    // Mock: always fail for now (backend not implemented)
-    setError(strings.admin.invalidCredentials);
-    setLoading(false);
+    try {
+      const result = await loginAdmin(email, password);
+      saveAuth(result.accessToken, result.user);
+      router.push(`/${lang}/admin/dashboard`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : strings.admin.invalidCredentials,
+      );
+      setLoading(false);
+    }
   };
 
   return (

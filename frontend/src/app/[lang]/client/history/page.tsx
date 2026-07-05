@@ -7,7 +7,7 @@ import { getStrings } from "@/strings";
 import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
-import { getClientOrders } from "@/lib/api/client";
+import { getMyOrders } from "@/lib/api/client";
 import type { Order } from "@/types";
 
 export default function HistoryPage() {
@@ -23,7 +23,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getClientOrders("cli-001")
+    getMyOrders()
       .then((data) => {
         if (!cancelled) setOrders(data);
       })

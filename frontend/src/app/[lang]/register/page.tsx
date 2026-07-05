@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { register as registerApi } from "@/lib/api/auth";
 
 export default function RegisterPage() {
   const params = useParams();
@@ -59,17 +60,27 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
-    // Simulate registration
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      await registerApi({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        companyName: form.companyName,
+        location: form.location,
+        idNumber: form.idNumber,
+      });
 
-    // Mock: always succeeds for now
-    setSuccess(true);
-    setLoading(false);
+      setSuccess(true);
+      setLoading(false);
 
-    // Redirect to login after 2 seconds
-    setTimeout(() => {
-      router.push(`/${lang}/login`);
-    }, 2000);
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.push(`/${lang}/login`);
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : strings.common.error);
+      setLoading(false);
+    }
   };
 
   const updateField = (field: string, value: string) => {

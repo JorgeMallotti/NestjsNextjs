@@ -9,11 +9,12 @@ import Input from "@/components/ui/Input";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import {
-  getClientClaims,
+  getMyClaims,
   createClaim,
+  getMyOrders,
   getClientOrders,
 } from "@/lib/api/client";
-import { getMockClientUser } from "@/lib/mock-data";
+import { getUser } from "@/lib/api/auth";
 import type { Claim, Order } from "@/types";
 
 const emptyForm = {
@@ -42,8 +43,7 @@ export default function ClaimsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const user = getMockClientUser();
-    Promise.all([getClientClaims(user.id), getClientOrders(user.id)])
+    Promise.all([getMyClaims(), getMyOrders()])
       .then(([c, o]) => {
         if (!cancelled) {
           setClaims(c);
@@ -83,23 +83,17 @@ export default function ClaimsPage() {
 
     setSubmitting(true);
     try {
-      const user = getMockClientUser();
       const product = availableProducts.find((p) => p.id === form.productId);
-      await createClaim(
-        {
-          orderId: form.orderId,
-          productId: form.productId,
-          reason: form.reason,
-          description: form.description,
-        },
-        user.id,
-        user.companyName,
-        product?.name ?? "",
-      );
+      await createClaim({
+        orderId: form.orderId,
+        productId: form.productId,
+        reason: form.reason,
+        description: form.description,
+      });
       setForm(emptyForm);
       setAvailableProducts([]);
       setSuccessMsg(strings.claims.claimFiled);
-      const updated = await getClientClaims(user.id);
+      const updated = await getMyClaims();
       setClaims(updated);
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch {

@@ -10,11 +10,11 @@ import Badge from "@/components/ui/Badge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getActiveProducts,
-  getClientOrders,
+  getMyOrders,
   createOrder,
   cancelOrder,
 } from "@/lib/api/client";
-import { getMockClientUser } from "@/lib/mock-data";
+import { getUser } from "@/lib/api/auth";
 import type { Product, Order } from "@/types";
 
 type Tab = "new" | "active";
@@ -49,7 +49,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getActiveProducts(), getClientOrders("cli-001")])
+    Promise.all([getActiveProducts(), getMyOrders()])
       .then(([p, o]) => {
         if (!cancelled) {
           setProducts(p);
@@ -135,23 +135,17 @@ export default function OrdersPage() {
 
   const handleSubmitOrder = async () => {
     try {
-      const user = getMockClientUser();
-      await createOrder(
-        {
-          items: cart.map((c) => ({
-            productId: c.productId,
-            quantity: c.quantity,
-          })),
-        },
-        user.id,
-        user.companyName,
-        products,
-      );
+      await createOrder({
+        items: cart.map((c) => ({
+          productId: c.productId,
+          quantity: c.quantity,
+        })),
+      });
       setCart([]);
       setSuccessMsg(strings.orders.orderPlaced);
       setShowConfirm(false);
       // Refresh orders
-      const updated = await getClientOrders("cli-001");
+      const updated = await getMyOrders();
       setOrders(updated);
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch {
@@ -400,6 +394,11 @@ export default function OrdersPage() {
                           order.estimatedDeliveryDate,
                         ).toLocaleDateString()}
                       </span>
+                    )}
+                    {order.adminNote && (
+                      <div className="mt-2 w-full rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                        {order.adminNote}
+                      </div>
                     )}
                     {order.status === "pending_approval" && (
                       <Button

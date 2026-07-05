@@ -8,11 +8,8 @@ import { getStrings } from "@/strings";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import {
-  getClientUser,
-  getClientOrders,
-  getClientClaims,
-} from "@/lib/api/client";
+import { getMyOrders, getMyClaims } from "@/lib/api/client";
+import { getUser } from "@/lib/api/auth";
 import type { ClientUser, Order, Claim } from "@/types";
 
 export default function ClientDashboardPage() {
@@ -28,14 +25,21 @@ export default function ClientDashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getClientUser(),
-      getClientOrders("cli-001"),
-      getClientClaims("cli-001"),
-    ])
-      .then(([u, o, c]) => {
+    const currentUser = getUser();
+    Promise.all([getMyOrders(), getMyClaims()])
+      .then(([o, c]) => {
         if (!cancelled) {
-          setUser(u);
+          if (currentUser) {
+            setUser({
+              id: currentUser.id,
+              name: currentUser.name,
+              email: currentUser.email,
+              companyName: "",
+              location: "",
+              idNumber: "",
+              createdAt: new Date().toISOString(),
+            });
+          }
           setOrders(o);
           setClaims(c);
         }

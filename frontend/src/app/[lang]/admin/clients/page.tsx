@@ -14,7 +14,9 @@ import {
   createClient,
   updateClient,
   deleteClient,
+  approveClient,
 } from "@/lib/api/client";
+import Badge from "@/components/ui/Badge";
 import type { Client, ClientFormData } from "@/types";
 
 const emptyForm: ClientFormData = {
@@ -22,6 +24,7 @@ const emptyForm: ClientFormData = {
   email: "",
   location: "",
   idNumber: "",
+  password: "",
 };
 
 export default function ClientsPage() {
@@ -42,6 +45,9 @@ export default function ClientsPage() {
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Approve
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,10 +100,27 @@ export default function ClientsPage() {
         setClients((prev) => [...prev, created]);
       }
       setModalOpen(false);
-    } catch {
-      // Error handling
+    } catch (err) {
+      console.error(err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    setApproving(true);
+    const prev = clients;
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, approvedAt: new Date().toISOString() } : c,
+      ),
+    );
+    try {
+      await approveClient(id);
+    } catch {
+      setClients(prev);
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -174,7 +197,12 @@ export default function ClientsPage() {
                 <Th className="hidden xl:table-cell">
                   {strings.clients.lastYearPurchases}
                 </Th>
-                <Th>{strings.clients.totalPurchases}</Th>
+                <Th>{strings.clients.email}</Th>
+                <Th className="hidden lg:table-cell">
+                  {strings.clients.location}
+                </Th>
+                <Th className="hidden lg:table-cell">{strings.orders.title}</Th>
+                <Th>{strings.common.status}</Th>
                 <Th>{strings.common.actions}</Th>
               </tr>
             </thead>
@@ -196,26 +224,36 @@ export default function ClientsPage() {
                       </p>
                     </div>
                   </Td>
-                  <Td className="hidden md:table-cell text-zinc-600 dark:text-zinc-400">
+                  <Td className="text-zinc-600 dark:text-zinc-400">
                     {client.email}
                   </Td>
                   <Td className="hidden lg:table-cell text-zinc-600 dark:text-zinc-400">
                     {client.location}
                   </Td>
-                  <Td className="hidden lg:table-cell">
-                    {formatCurrency(client.purchasesLastMonth)}
+                  <Td className="hidden lg:table-cell text-zinc-600 dark:text-zinc-400">
+                    {client._count?.orders ?? 0}
                   </Td>
-                  <Td className="hidden xl:table-cell">
-                    {formatCurrency(client.purchasesLast3Months)}
-                  </Td>
-                  <Td className="hidden xl:table-cell">
-                    {formatCurrency(client.purchasesLastYear)}
-                  </Td>
-                  <Td className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {formatCurrency(client.totalPurchases)}
+                  <Td>
+                    {client.approvedAt ? (
+                      <Badge color="green">{strings.orders.confirmed}</Badge>
+                    ) : (
+                      <Badge color="amber">
+                        {strings.orders.pendingApproval}
+                      </Badge>
+                    )}
                   </Td>
                   <Td>
                     <div className="flex gap-2">
+                      {!client.approvedAt && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleApprove(client.id)}
+                          loading={approving}
+                        >
+                          {strings.common.confirm}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -274,6 +312,15 @@ export default function ClientsPage() {
             onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
             required
           />
+          {!editingId && (
+            <Input
+              label={strings.login.passwordLabel}
+              type="password"
+              value={form.password ?? ""}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required
+            />
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="ghost" onClick={() => setModalOpen(false)}>
               {strings.common.cancel}

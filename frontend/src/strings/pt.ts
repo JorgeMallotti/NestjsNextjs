@@ -8,6 +8,7 @@ const strings = {
     trucks: "Camides",
     workers: "Trabalhadores",
     products: "Produtos",
+    orders: "Encomendas",
     logout: "Sair",
     register: "Registar",
     myAccount: "Minha Conta",
@@ -218,6 +219,8 @@ const strings = {
     total: "Total",
     submitOrderConfirm: "Enviar esta encomenda?",
     chooseProducts: "Escolhe produtos e quantidades",
+    adminNoteLabel: "Mensagem para o cliente",
+    adminNotePlaceholder: "Ex. Atrasado devido à produção do componente X...",
   },
   claims: {
     title: "Reclamações",

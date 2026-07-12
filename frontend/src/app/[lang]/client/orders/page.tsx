@@ -13,6 +13,7 @@ import {
   getMyOrders,
   createOrder,
   cancelOrder,
+  deliverOrderClient,
 } from "@/lib/api/client";
 import { getUser } from "@/lib/api/auth";
 import type { Product, Order } from "@/types";
@@ -41,6 +42,7 @@ export default function OrdersPage() {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -134,14 +136,17 @@ export default function OrdersPage() {
   /* ─── Submit order ─────────────────────────────────── */
 
   const handleSubmitOrder = async () => {
+    if (!deliveryAddress.trim()) return;
     try {
       await createOrder({
+        deliveryAddress: deliveryAddress.trim(),
         items: cart.map((c) => ({
           productId: c.productId,
           quantity: c.quantity,
         })),
       });
       setCart([]);
+      setDeliveryAddress("");
       setSuccessMsg(strings.orders.orderPlaced);
       setShowConfirm(false);
       // Refresh orders
@@ -299,6 +304,22 @@ export default function OrdersPage() {
             <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               {strings.orders.currentOrder}
             </h2>
+
+            {/* Delivery address */}
+            <div className="mb-4">
+              <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {strings.orders.deliveryAddress}{" "}
+                <span className="text-danger">*</span>
+              </label>
+              <textarea
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                rows={2}
+                placeholder={strings.orders.deliveryAddressPlaceholder}
+                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </div>
+
             {cart.length === 0 ? (
               <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                 {strings.orders.chooseProducts}
@@ -344,6 +365,7 @@ export default function OrdersPage() {
                 <Button
                   className="mt-4 w-full"
                   onClick={() => setShowConfirm(true)}
+                  disabled={!deliveryAddress.trim()}
                 >
                   {strings.orders.submitOrder}
                 </Button>
@@ -387,6 +409,11 @@ export default function OrdersPage() {
                     <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       {formatCurrency(order.totalAmount)}
                     </span>
+                    {order.deliveryAddress && (
+                      <span className="hidden text-xs text-zinc-500 md:inline dark:text-zinc-400">
+                        {order.deliveryAddress}
+                      </span>
+                    )}
                     {order.estimatedDeliveryDate && (
                       <span className="text-xs text-zinc-500 dark:text-zinc-400">
                         {strings.orders.estimatedDelivery}:{" "}
@@ -408,6 +435,29 @@ export default function OrdersPage() {
                         className="text-danger"
                       >
                         {strings.orders.cancelOrder}
+                      </Button>
+                    )}
+                    {order.status === "shipped" && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={async () => {
+                          const prev = orders;
+                          setOrders((prev) =>
+                            prev.map((o) =>
+                              o.id === order.id
+                                ? { ...o, status: "delivered" as const }
+                                : o,
+                            ),
+                          );
+                          try {
+                            await deliverOrderClient(order.id);
+                          } catch {
+                            setOrders(prev);
+                          }
+                        }}
+                      >
+                        {strings.orders.markAsDelivered}
                       </Button>
                     )}
                   </div>

@@ -12,11 +12,10 @@ import Modal from "@/components/ui/Modal";
 import {
   getOrders,
   approveOrder,
-  shipOrder,
-  deliverOrder,
   cancelOrder as cancelOrderApi,
+  getAvailableTrucks,
 } from "@/lib/api/client";
-import type { Order } from "@/types";
+import type { Order, AvailableTruck } from "@/types";
 
 const statusColorMap: Record<
   string,
@@ -54,6 +53,8 @@ export default function AdminOrdersPage() {
   const [deliveryDate, setDeliveryDate] = useState("");
   const [adminNote, setAdminNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [availableTrucks, setAvailableTrucks] = useState<AvailableTruck[]>([]);
+  const [selectedTruckId, setSelectedTruckId] = useState("");
 
   // Detail modal
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
@@ -119,44 +120,16 @@ export default function AdminOrdersPage() {
         approveId,
         deliveryDate || undefined,
         adminNote || undefined,
+        selectedTruckId || undefined,
       );
       setApproveId(null);
       setDeliveryDate("");
       setAdminNote("");
+      setSelectedTruckId("");
     } catch {
       setOrders(prev);
     } finally {
       setSaving(false);
-    }
-  };
-
-  /* ─── Ship order ───────────────────────────────────── */
-
-  const handleShip = async (id: string) => {
-    const prev = orders;
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status: "shipped" as const } : o)),
-    );
-    try {
-      await shipOrder(id);
-    } catch {
-      setOrders(prev);
-    }
-  };
-
-  /* ─── Deliver order ────────────────────────────────── */
-
-  const handleDeliver = async (id: string) => {
-    const prev = orders;
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === id ? { ...o, status: "delivered" as const } : o,
-      ),
-    );
-    try {
-      await deliverOrder(id);
-    } catch {
-      setOrders(prev);
     }
   };
 
@@ -257,6 +230,9 @@ export default function AdminOrdersPage() {
                     — {new Date(order.createdAt).toLocaleDateString()} —{" "}
                     {(order as any).items?.length ?? 0} {strings.orders.items}
                   </p>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    📍 {order.deliveryAddress}
+                  </p>
                   {order.estimatedDeliveryDate && (
                     <p className="mt-0.5 text-xs text-zinc-400">
                       {strings.orders.estimatedDelivery}:{" "}
@@ -284,6 +260,9 @@ export default function AdminOrdersPage() {
                           const d = new Date();
                           d.setDate(d.getDate() + 7);
                           setDeliveryDate(d.toISOString().split("T")[0]);
+                          setSelectedTruckId("");
+                          // Load available trucks
+                          getAvailableTrucks().then(setAvailableTrucks);
                         }}
                       >
                         {strings.orders.confirmed}
@@ -297,16 +276,6 @@ export default function AdminOrdersPage() {
                         {strings.orders.cancelOrder}
                       </Button>
                     </div>
-                  )}
-                  {order.status === "confirmed" && (
-                    <Button size="sm" onClick={() => handleShip(order.id)}>
-                      {strings.orders.shipped}
-                    </Button>
-                  )}
-                  {order.status === "shipped" && (
-                    <Button size="sm" onClick={() => handleDeliver(order.id)}>
-                      {strings.orders.delivered}
-                    </Button>
                   )}
                 </div>
               </div>
@@ -322,10 +291,67 @@ export default function AdminOrdersPage() {
           setApproveId(null);
           setDeliveryDate("");
           setAdminNote("");
+          setSelectedTruckId("");
         }}
         title={strings.orders.orderConfirmed}
       >
         <div className="space-y-4">
+          {/* Order items summary — so admin can see products before approving */}
+          {approveId && (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {strings.orders.items}
+              </h3>
+              <div className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                {orders
+                  .find((o) => o.id === approveId)
+                  ?.items?.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between px-3 py-2 text-sm"
+                    >
+                      <span className="text-zinc-700 dark:text-zinc-300">
+                        {item.productName}
+                      </span>
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {item.quantity} x {formatCurrency(item.unitPrice)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              {/* Delivery address */}
+              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                <span className="font-medium">
+                  {strings.orders.deliveryAddress}:
+                </span>{" "}
+                {orders.find((o) => o.id === approveId)?.deliveryAddress}
+              </div>
+            </div>
+          )}
+
+          {/* Truck selector */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {strings.trucks.selectTruck}{" "}
+              <span className="text-danger">*</span>
+            </label>
+            <select
+              value={selectedTruckId}
+              onChange={(e) => setSelectedTruckId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              <option value="">--</option>
+              {availableTrucks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.plateNumber} — {t.model}
+                  {t.status === "loading" && t.currentDestination
+                    ? ` (${strings.trucks.loading} → ${t.currentDestination})`
+                    : ` (${strings.trucks.available}, ${t.capacity}${strings.trucks.capacityUnit})`}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {strings.orders.deliveryDateSet}
           </p>
@@ -411,6 +437,16 @@ export default function AdminOrdersPage() {
                   {formatCurrency(detailOrder.totalAmount)}
                 </p>
               </div>
+            </div>
+
+            {/* Delivery Address */}
+            <div>
+              <h3 className="mb-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {strings.orders.deliveryAddress}
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {detailOrder.deliveryAddress}
+              </p>
             </div>
 
             {/* Admin Note */}

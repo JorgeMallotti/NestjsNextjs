@@ -52,7 +52,7 @@ function unwrapData<T>(body: T | { data: T }): T {
   return body;
 }
 
-/* ─── HTTP helpers ────────────────────────────────────── */
+/* --- HTTP helpers ------------------------------------------------- */
 
 async function request<T>(
   method: string,

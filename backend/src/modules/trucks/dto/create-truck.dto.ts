@@ -25,6 +25,13 @@ export class CreateTruckDto {
   kilometrage?: number;
 
   @IsOptional()
-  @IsIn(['available', 'in_use', 'under_repair', 'disabled'])
+  @IsIn([
+    'available',
+    'loading',
+    'shipping',
+    'returning',
+    'under_repair',
+    'disabled',
+  ])
   status?: string;
 }

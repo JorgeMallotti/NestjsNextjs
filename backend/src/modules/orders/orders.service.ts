@@ -61,6 +61,7 @@ export class OrdersService {
         clientId: effectiveClientId,
         totalAmount,
         status: 'pending_approval',
+        deliveryAddress: dto.deliveryAddress,
         items: {
           create: orderItems,
         },
@@ -127,12 +128,63 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
+    // If a truckId is provided and status is confirmed, assign truck to this order
+    if (dto.truckId && dto.status === 'confirmed') {
+      const truck = await this.prisma.truck.findUnique({
+        where: { id: dto.truckId },
+      });
+
+      if (!truck) {
+        throw new NotFoundException('Truck not found');
+      }
+
+      if (!['available', 'loading'].includes(truck.status)) {
+        throw new BadRequestException('Truck is not available for loading');
+      }
+
+      // Calculate order total weight from product items
+      const orderItemsWithProducts = await this.prisma.orderItem.findMany({
+        where: { orderId: id },
+        include: { product: true },
+      });
+
+      const orderWeight = orderItemsWithProducts.reduce(
+        (sum, item) => sum + (item.product?.weight ?? 0) * item.quantity,
+        0,
+      );
+
+      const totalCapacity = truck.capacity;
+      const currentAvailable =
+        truck.status === 'loading' && truck.availableCapacity != null
+          ? truck.availableCapacity
+          : totalCapacity;
+
+      const newAvailable = Math.max(0, currentAvailable - orderWeight);
+
+      if (orderWeight > currentAvailable) {
+        throw new BadRequestException(
+          `Order weight (${orderWeight}kg) exceeds truck available capacity (${currentAvailable}kg)`,
+        );
+      }
+
+      // Assign truck to order
+      await this.prisma.truck.update({
+        where: { id: dto.truckId },
+        data: {
+          status: 'loading',
+          currentOrderId: id,
+          currentDestination: order.deliveryAddress,
+          availableCapacity: newAvailable,
+        },
+      });
+    }
+
     return this.prisma.order.update({
       where: { id },
       data: {
         ...(dto.status ? { status: dto.status } : {}),
         ...(dto.estimatedDeliveryDate
-          ? { estimatedDeliveryDate: dto.estimatedDeliveryDate }
+          ? { estimatedDeliveryDate: new Date(dto.estimatedDeliveryDate) }
           : {}),
         ...(dto.adminNote ? { adminNote: dto.adminNote } : {}),
       },
@@ -143,6 +195,53 @@ export class OrdersService {
         },
       },
     });
+  }
+
+  /**
+   * Client marks an order as delivered.
+   * Updates the order status and sets the truck to returning.
+   */
+  async deliver(id: string, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { truck: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.clientId !== userId) {
+      throw new BadRequestException('This order does not belong to you');
+    }
+
+    if (order.status !== 'shipped') {
+      throw new BadRequestException(
+        'Only shipped orders can be marked as delivered',
+      );
+    }
+
+    // Update order to delivered
+    const updatedOrder = await this.prisma.order.update({
+      where: { id },
+      data: { status: 'delivered' },
+      include: {
+        items: true,
+        client: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Set truck to returning (if assigned)
+    if (order.truck) {
+      await this.prisma.truck.update({
+        where: { id: order.truck.id },
+        data: { status: 'returning' },
+      });
+    }
+
+    return updatedOrder;
   }
 
   async remove(id: string) {

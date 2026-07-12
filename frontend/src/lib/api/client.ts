@@ -10,6 +10,7 @@ import { api } from "./api";
 import type {
   Client,
   Truck,
+  AvailableTruck,
   Worker,
   DashboardSummary,
   ClientFormData,
@@ -49,9 +50,7 @@ export async function deleteClient(id: string): Promise<void> {
   await api.delete(`/clients/${id}`);
 }
 
-export async function approveClient(
-  id: string,
-): Promise<{
+export async function approveClient(id: string): Promise<{
   id: string;
   name: string;
   email: string;
@@ -159,11 +158,13 @@ export async function updateOrderStatus(
   status: string,
   estimatedDeliveryDate?: string,
   adminNote?: string,
+  truckId?: string,
 ): Promise<Order> {
   return api.patch<Order>(`/orders/${id}`, {
     status,
     ...(estimatedDeliveryDate ? { estimatedDeliveryDate } : {}),
     ...(adminNote ? { adminNote } : {}),
+    ...(truckId ? { truckId } : {}),
   });
 }
 
@@ -171,8 +172,15 @@ export async function approveOrder(
   id: string,
   estimatedDeliveryDate?: string,
   adminNote?: string,
+  truckId?: string,
 ): Promise<Order> {
-  return updateOrderStatus(id, "confirmed", estimatedDeliveryDate, adminNote);
+  return updateOrderStatus(
+    id,
+    "confirmed",
+    estimatedDeliveryDate,
+    adminNote,
+    truckId,
+  );
 }
 
 export async function shipOrder(id: string): Promise<Order> {
@@ -185,6 +193,37 @@ export async function deliverOrder(id: string): Promise<Order> {
 
 export async function cancelOrder(id: string): Promise<Order> {
   return updateOrderStatus(id, "cancelled");
+}
+
+/* ─── Trucks — Shipping & Returns ────────────────────── */
+
+export async function getAvailableTrucks(): Promise<AvailableTruck[]> {
+  return api.get<AvailableTruck[]>("/trucks/available-for-loading");
+}
+
+export async function shipTruck(id: string, driverId: string): Promise<Truck> {
+  return api.post<Truck>(`/trucks/${id}/ship`, { driverId });
+}
+
+export async function returnTruck(
+  id: string,
+  newKilometrage: number,
+): Promise<Truck> {
+  return api.post<Truck>(`/trucks/${id}/return`, { newKilometrage });
+}
+
+/* ─── Workers — Available Drivers ────────────────────── */
+
+export async function getAvailableDrivers(): Promise<
+  { id: string; name: string; position: string; status: string }[]
+> {
+  return api.get("/workers/available-drivers");
+}
+
+/* ─── Client — Mark Order as Delivered ───────────────── */
+
+export async function deliverOrderClient(id: string): Promise<Order> {
+  return api.patch<Order>(`/orders/${id}/deliver`);
 }
 
 /* ─── Orders (Client — my orders only) ────────────────── */

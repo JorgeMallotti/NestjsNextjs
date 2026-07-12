@@ -12,4 +12,8 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsString()
   adminNote?: string;
+
+  @IsOptional()
+  @IsString()
+  truckId?: string;
 }

@@ -24,6 +24,7 @@ const emptyForm: ProductFormData = {
   brand: "",
   type: "CPU",
   price: 0,
+  weight: 0,
   isActive: true,
 };
 
@@ -80,6 +81,7 @@ export default function ProductsPage() {
       brand: product.brand,
       type: product.type,
       price: product.price,
+      weight: product.weight,
       isActive: product.isActive,
     });
     setModalOpen(true);
@@ -179,6 +181,9 @@ export default function ProductsPage() {
                   {strings.products.type}
                 </Th>
                 <Th>{strings.products.price}</Th>
+                <Th className="hidden md:table-cell">
+                  {strings.products.weight}
+                </Th>
                 <Th>Status</Th>
                 <Th>{strings.common.actions}</Th>
               </tr>
@@ -204,6 +209,9 @@ export default function ProductsPage() {
                   </Td>
                   <Td className="font-medium text-zinc-900 dark:text-zinc-100">
                     {currency} {product.price.toLocaleString("en-US")}
+                  </Td>
+                  <Td className="hidden md:table-cell text-zinc-600 dark:text-zinc-400">
+                    {product.weight} kg
                   </Td>
                   <Td>
                     <Badge color={product.isActive ? "green" : "gray"}>
@@ -290,6 +298,16 @@ export default function ProductsPage() {
             value={form.price === 0 ? "" : String(form.price)}
             onChange={(e) =>
               setForm({ ...form, price: Number(e.target.value) })
+            }
+            required
+          />
+          <Input
+            label={strings.products.weight}
+            type="number"
+            step="0.1"
+            value={form.weight === 0 ? "" : String(form.weight)}
+            onChange={(e) =>
+              setForm({ ...form, weight: Number(e.target.value) })
             }
             required
           />

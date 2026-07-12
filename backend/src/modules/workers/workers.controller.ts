@@ -33,6 +33,11 @@ export class WorkersController {
     return this.workersService.findAll(pagination);
   }
 
+  @Get('available-drivers')
+  findAvailableDrivers() {
+    return this.workersService.findAvailableDrivers();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.workersService.findOne(id);

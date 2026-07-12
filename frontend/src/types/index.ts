@@ -24,8 +24,28 @@ export interface Truck {
   plateNumber: string;
   model: string;
   capacity: number;
+  availableCapacity: number | null;
   kilometrage: number;
-  status: "available" | "in_use" | "under_repair" | "disabled";
+  status:
+    | "available"
+    | "loading"
+    | "shipping"
+    | "returning"
+    | "under_repair"
+    | "disabled";
+  currentDestination: string | null;
+  driver?: { id: string; name: string } | null;
+  currentOrder?: { id: string; deliveryAddress: string } | null;
+}
+
+export interface AvailableTruck {
+  id: string;
+  plateNumber: string;
+  model: string;
+  capacity: number;
+  availableCapacity: number | null;
+  status: "available" | "loading";
+  currentDestination: string | null;
 }
 
 export interface Worker {
@@ -33,7 +53,7 @@ export interface Worker {
   name: string;
   position: string;
   startDate: string;
-  status: "active" | "on_vacation" | "sick_leave" | "inactive";
+  status: "available" | "driving" | "on_vacation" | "sick_leave" | "inactive";
 }
 
 export interface DashboardSummary {
@@ -90,6 +110,7 @@ export interface Product {
   brand: string;
   type: string;
   price: number;
+  weight: number;
   isActive: boolean;
   createdAt: string;
 }
@@ -99,6 +120,7 @@ export interface ProductFormData {
   brand: string;
   type: string;
   price: number;
+  weight: number;
   isActive: boolean;
 }
 
@@ -122,9 +144,11 @@ export interface Order {
   id: string;
   clientId: string;
   clientName: string;
+  deliveryAddress: string;
   items: OrderItem[];
   totalAmount: number;
   status: OrderStatus;
+  truckId?: string | null;
   estimatedDeliveryDate: string | null;
   adminNote: string | null;
   createdAt: string;
@@ -132,6 +156,7 @@ export interface Order {
 }
 
 export interface OrderFormData {
+  deliveryAddress: string;
   items: { productId: string; quantity: number }[];
 }
 

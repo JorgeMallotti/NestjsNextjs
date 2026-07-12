@@ -33,6 +33,11 @@ export class TrucksController {
     return this.trucksService.findAll(pagination);
   }
 
+  @Get('available-for-loading')
+  findAvailableForLoading() {
+    return this.trucksService.findAvailableForLoading();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.trucksService.findOne(id);
@@ -46,5 +51,18 @@ export class TrucksController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.trucksService.remove(id);
+  }
+
+  @Post(':id/ship')
+  ship(@Param('id') id: string, @Body() body: { driverId: string }) {
+    return this.trucksService.ship(id, body.driverId);
+  }
+
+  @Post(':id/return')
+  returnToFactory(
+    @Param('id') id: string,
+    @Body() body: { newKilometrage: number },
+  ) {
+    return this.trucksService.returnToFactory(id, body.newKilometrage);
   }
 }

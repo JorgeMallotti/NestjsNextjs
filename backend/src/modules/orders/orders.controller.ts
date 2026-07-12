@@ -61,6 +61,12 @@ export class OrdersController {
     return this.ordersService.update(id, dto);
   }
 
+  @Roles('client')
+  @Patch(':id/deliver')
+  deliver(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.ordersService.deliver(id, userId);
+  }
+
   @Roles('admin')
   @Delete(':id')
   remove(@Param('id') id: string) {

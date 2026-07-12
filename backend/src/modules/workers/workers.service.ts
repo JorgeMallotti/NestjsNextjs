@@ -36,6 +36,22 @@ export class WorkersService {
     };
   }
 
+  /**
+   * Return workers with 'active' status who can be assigned as drivers.
+   */
+  async findAvailableDrivers() {
+    return this.prisma.worker.findMany({
+      where: { status: 'available' },
+      select: {
+        id: true,
+        name: true,
+        position: true,
+        status: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findOne(id: string) {
     const worker = await this.prisma.worker.findUnique({ where: { id } });
 

@@ -18,6 +18,6 @@ export class CreateWorkerDto {
   startDate: string;
 
   @IsOptional()
-  @IsIn(['active', 'on_vacation', 'sick_leave', 'inactive'])
+  @IsIn(['available', 'driving', 'on_vacation', 'sick_leave', 'inactive'])
   status?: string;
 }

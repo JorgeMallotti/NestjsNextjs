@@ -7,7 +7,7 @@ interface AdminLayoutProps {
   params: Promise<{ lang: string }>;
 }
 
-export default async function AdminLayout({
+export default async function AdminDashboardLayout({
   children,
   params,
 }: AdminLayoutProps) {

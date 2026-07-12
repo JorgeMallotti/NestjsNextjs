@@ -11,52 +11,52 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
-  getTrucks,
-  createTruck,
-  updateTruck,
-  deleteTruck,
+  getWorkers,
+  createWorker,
+  updateWorker,
+  deleteWorker,
 } from "@/lib/api/client";
-import type { Truck, TruckFormData } from "@/types";
+import type { Worker, WorkerFormData } from "@/types";
 
 const statusColorMap: Record<
-  Truck["status"],
-  "green" | "blue" | "amber" | "gray"
+  Worker["status"],
+  "green" | "blue" | "purple" | "amber" | "gray"
 > = {
   available: "green",
-  in_use: "blue",
-  under_repair: "amber",
-  disabled: "gray",
+  driving: "purple",
+  on_vacation: "blue",
+  sick_leave: "amber",
+  inactive: "gray",
 };
 
-const emptyForm: TruckFormData = {
-  plateNumber: "",
-  model: "",
-  capacity: 0,
-  kilometrage: 0,
+const emptyForm: WorkerFormData = {
+  name: "",
+  position: "",
+  startDate: "",
   status: "available",
 };
 
-export default function TrucksPage() {
+export default function WorkersPage() {
   const params = useParams();
   const lang = (params.lang as string) ?? "en";
   const strings = getStrings(lang);
 
-  const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<TruckFormData>(emptyForm);
+  const [form, setForm] = useState<WorkerFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getTrucks()
+    getWorkers()
       .then((data) => {
-        if (!cancelled) setTrucks(data);
+        if (!cancelled) setWorkers(data);
       })
       .catch(() => {})
       .finally(() => {
@@ -67,10 +67,10 @@ export default function TrucksPage() {
     };
   }, []);
 
-  const filtered = trucks.filter(
-    (t) =>
-      t.plateNumber.toLowerCase().includes(search.toLowerCase()) ||
-      t.model.toLowerCase().includes(search.toLowerCase()),
+  const filtered = workers.filter(
+    (w) =>
+      w.name.toLowerCase().includes(search.toLowerCase()) ||
+      w.position.toLowerCase().includes(search.toLowerCase()),
   );
 
   const openAdd = () => {
@@ -79,14 +79,13 @@ export default function TrucksPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (truck: Truck) => {
-    setEditingId(truck.id);
+  const openEdit = (worker: Worker) => {
+    setEditingId(worker.id);
     setForm({
-      plateNumber: truck.plateNumber,
-      model: truck.model,
-      capacity: truck.capacity,
-      kilometrage: truck.kilometrage,
-      status: truck.status,
+      name: worker.name,
+      position: worker.position,
+      startDate: worker.startDate.split("T")[0],
+      status: worker.status,
     });
     setModalOpen(true);
   };
@@ -94,14 +93,18 @@ export default function TrucksPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        startDate: new Date(form.startDate).toISOString(),
+      };
       if (editingId) {
-        const updated = await updateTruck(editingId, form);
-        setTrucks((prev) =>
-          prev.map((t) => (t.id === editingId ? updated : t)),
+        const updated = await updateWorker(editingId, payload);
+        setWorkers((prev) =>
+          prev.map((w) => (w.id === editingId ? updated : w)),
         );
       } else {
-        const created = await createTruck(form);
-        setTrucks((prev) => [...prev, created]);
+        const created = await createWorker(payload);
+        setWorkers((prev) => [...prev, created]);
       }
       setModalOpen(false);
     } catch {
@@ -113,31 +116,32 @@ export default function TrucksPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const prev = trucks;
-    setTrucks((prev) => prev.filter((t) => t.id !== deleteId));
+    const prev = workers;
+    setWorkers((prev) => prev.filter((w) => w.id !== deleteId));
     setDeleteId(null);
     try {
-      await deleteTruck(deleteId);
+      await deleteWorker(deleteId);
     } catch {
-      setTrucks(prev);
+      setWorkers(prev);
     }
   };
 
-  const handleStatusChange = async (id: string, status: Truck["status"]) => {
-    const prev = trucks;
-    setTrucks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+  const handleStatusChange = async (id: string, status: Worker["status"]) => {
+    const prev = workers;
+    setWorkers((prev) => prev.map((w) => (w.id === id ? { ...w, status } : w)));
     try {
-      await updateTruck(id, { status });
+      await updateWorker(id, { status });
     } catch {
-      setTrucks(prev);
+      setWorkers(prev);
     }
   };
 
-  const statusLabel: Record<Truck["status"], string> = {
-    available: strings.trucks.available,
-    in_use: strings.trucks.inUse,
-    under_repair: strings.trucks.underRepair,
-    disabled: strings.trucks.disabled,
+  const statusLabel: Record<Worker["status"], string> = {
+    available: strings.workers.available,
+    driving: strings.workers.driving,
+    on_vacation: strings.workers.onVacation,
+    sick_leave: strings.workers.sickLeave,
+    inactive: strings.workers.inactive,
   };
 
   if (loading) {
@@ -157,7 +161,7 @@ export default function TrucksPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          {strings.trucks.title}
+          {strings.workers.title}
         </h1>
         <div className="flex items-center gap-3">
           <Input
@@ -166,7 +170,7 @@ export default function TrucksPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-xs"
           />
-          <Button onClick={openAdd}>{strings.trucks.addTruck}</Button>
+          <Button onClick={openAdd}>{strings.workers.addWorker}</Button>
         </div>
       </div>
 
@@ -174,7 +178,7 @@ export default function TrucksPage() {
       {filtered.length === 0 ? (
         <Card>
           <p className="py-10 text-center text-zinc-500 dark:text-zinc-400">
-            {strings.trucks.noTrucks}
+            {strings.workers.noWorkers}
           </p>
         </Card>
       ) : (
@@ -182,44 +186,39 @@ export default function TrucksPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-800/50">
               <tr>
-                <Th>{strings.trucks.plateNumber}</Th>
-                <Th className="hidden sm:table-cell">{strings.trucks.model}</Th>
-                <Th className="hidden md:table-cell">
-                  {strings.trucks.capacity}
+                <Th>{strings.workers.workerName}</Th>
+                <Th className="hidden sm:table-cell">
+                  {strings.workers.position}
                 </Th>
                 <Th className="hidden md:table-cell">
-                  {strings.trucks.kilometrage}
+                  {strings.workers.startDate}
                 </Th>
-                <Th>{strings.trucks.status}</Th>
+                <Th>{strings.workers.status}</Th>
                 <Th>{strings.common.actions}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-              {filtered.map((truck) => (
+              {filtered.map((worker) => (
                 <motion.tr
-                  key={truck.id}
+                  key={worker.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="bg-white transition-colors hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/50"
                 >
                   <Td>
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {truck.plateNumber}
+                      {worker.name}
                     </span>
                   </Td>
                   <Td className="hidden sm:table-cell text-zinc-600 dark:text-zinc-400">
-                    {truck.model}
+                    {worker.position}
                   </Td>
                   <Td className="hidden md:table-cell text-zinc-600 dark:text-zinc-400">
-                    {truck.capacity.toLocaleString()}{" "}
-                    {strings.trucks.capacityUnit}
-                  </Td>
-                  <Td className="hidden md:table-cell text-zinc-600 dark:text-zinc-400">
-                    {truck.kilometrage.toLocaleString()} km
+                    {new Date(worker.startDate).toLocaleDateString()}
                   </Td>
                   <Td>
-                    <Badge color={statusColorMap[truck.status]}>
-                      {statusLabel[truck.status]}
+                    <Badge color={statusColorMap[worker.status]}>
+                      {statusLabel[worker.status]}
                     </Badge>
                   </Td>
                   <Td>
@@ -227,7 +226,7 @@ export default function TrucksPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openEdit(truck)}
+                        onClick={() => openEdit(worker)}
                       >
                         {strings.common.edit}
                       </Button>
@@ -235,20 +234,21 @@ export default function TrucksPage() {
                         <Button variant="ghost" size="sm">
                           {strings.common.filter}
                         </Button>
-                        <div className="absolute right-0 top-full z-10 mt-1 hidden w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
+                        <div className="absolute right-0 top-full z-10 mt-1 hidden w-40 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
                           {(
                             [
                               "available",
-                              "in_use",
-                              "under_repair",
-                              "disabled",
-                            ] as Truck["status"][]
+                              "driving",
+                              "on_vacation",
+                              "sick_leave",
+                              "inactive",
+                            ] as Worker["status"][]
                           ).map((s) => (
                             <button
                               key={s}
-                              onClick={() => handleStatusChange(truck.id, s)}
+                              onClick={() => handleStatusChange(worker.id, s)}
                               className={`w-full rounded-md px-3 py-1.5 text-left text-xs transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700 ${
-                                truck.status === s
+                                worker.status === s
                                   ? "bg-zinc-100 font-medium dark:bg-zinc-700"
                                   : ""
                               }`}
@@ -261,7 +261,7 @@ export default function TrucksPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setDeleteId(truck.id)}
+                        onClick={() => setDeleteId(worker.id)}
                         className="text-danger hover:text-red-700 dark:hover:text-red-400"
                       >
                         {strings.common.delete}
@@ -279,57 +279,49 @@ export default function TrucksPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingId ? strings.trucks.editTruck : strings.trucks.addTruck}
+        title={
+          editingId ? strings.workers.editWorker : strings.workers.addWorker
+        }
       >
         <div className="space-y-4">
           <Input
-            label={strings.trucks.plateNumber}
-            value={form.plateNumber}
-            onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
+            label={strings.workers.workerName}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
           <Input
-            label={strings.trucks.model}
-            value={form.model}
-            onChange={(e) => setForm({ ...form, model: e.target.value })}
+            label={strings.workers.position}
+            value={form.position}
+            onChange={(e) => setForm({ ...form, position: e.target.value })}
             required
           />
           <Input
-            label={`${strings.trucks.capacity} (${strings.trucks.capacityUnit})`}
-            type="number"
-            value={form.capacity === 0 ? "" : String(form.capacity)}
-            onChange={(e) =>
-              setForm({ ...form, capacity: Number(e.target.value) })
-            }
-            required
-          />
-          <Input
-            label={`${strings.trucks.kilometrage} (km)`}
-            type="number"
-            value={form.kilometrage === 0 ? "" : String(form.kilometrage)}
-            onChange={(e) =>
-              setForm({ ...form, kilometrage: Number(e.target.value) })
-            }
+            label={strings.workers.startDate}
+            type="date"
+            value={form.startDate}
+            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
             required
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              {strings.trucks.status}
+              {strings.workers.status}
             </label>
             <select
               value={form.status}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  status: e.target.value as Truck["status"],
+                  status: e.target.value as Worker["status"],
                 })
               }
               className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             >
-              <option value="available">{strings.trucks.available}</option>
-              <option value="in_use">{strings.trucks.inUse}</option>
-              <option value="under_repair">{strings.trucks.underRepair}</option>
-              <option value="disabled">{strings.trucks.disabled}</option>
+              <option value="available">{strings.workers.available}</option>
+              <option value="driving">{strings.workers.driving}</option>
+              <option value="on_vacation">{strings.workers.onVacation}</option>
+              <option value="sick_leave">{strings.workers.sickLeave}</option>
+              <option value="inactive">{strings.workers.inactive}</option>
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
@@ -346,8 +338,8 @@ export default function TrucksPage() {
       {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteId}
-        title={strings.trucks.deleteTruck}
-        message={strings.trucks.confirmDelete}
+        title={strings.workers.deleteWorker}
+        message={strings.workers.confirmDelete}
         confirmLabel={strings.common.delete}
         cancelLabel={strings.common.cancel}
         variant="danger"

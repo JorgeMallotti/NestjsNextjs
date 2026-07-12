@@ -240,7 +240,7 @@ export class ClientsService {
       this.prisma.user.count({ where: { role: 'client' } }),
       this.prisma.user.count({ where: { role: 'client', isActive: true } }),
       this.prisma.truck.count({ where: { status: 'available' } }),
-      this.prisma.worker.count({ where: { status: 'active' } }),
+      this.prisma.worker.count({ where: { status: 'available' } }),
       this.prisma.order.aggregate({
         _sum: { totalAmount: true },
       }),

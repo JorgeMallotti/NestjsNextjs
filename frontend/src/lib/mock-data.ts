@@ -200,7 +200,7 @@ export function getMockTrucks(): Truck[] {
       model: "Volvo FH 460",
       capacity: 20000,
       kilometrage: 234500,
-      status: "in_use",
+      status: "shipping",
     },
     {
       id: "trk-003",

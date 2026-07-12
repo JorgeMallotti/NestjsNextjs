@@ -23,6 +23,9 @@ export class CreateOrderDto {
   @IsString()
   clientId?: string;
 
+  @IsString()
+  deliveryAddress: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

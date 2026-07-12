@@ -23,6 +23,11 @@ export class CreateProductDto {
   price: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  weight?: number;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

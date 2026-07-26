@@ -18,6 +18,7 @@ const navItems = [
   { key: "workers", href: "workers", icon: WorkersIcon },
   { key: "products", href: "products", icon: ProductsIcon },
   { key: "orders", href: "orders", icon: OrdersIcon },
+  { key: "auditLog", href: "audit-log", icon: AuditIcon },
 ] as const;
 
 export default function Sidebar({ strings, lang }: SidebarProps) {
@@ -253,6 +254,24 @@ function OrdersIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+      />
+    </svg>
+  );
+}
+
+function AuditIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
       />
     </svg>
   );

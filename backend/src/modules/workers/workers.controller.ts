@@ -15,6 +15,7 @@ import { UpdateWorkerDto } from './dto/update-worker.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,8 +25,8 @@ export class WorkersController {
   constructor(private readonly workersService: WorkersService) {}
 
   @Post()
-  create(@Body() dto: CreateWorkerDto) {
-    return this.workersService.create(dto);
+  create(@Body() dto: CreateWorkerDto, @CurrentUser('id') userId: string) {
+    return this.workersService.create(dto, userId);
   }
 
   @Get()
@@ -44,12 +45,20 @@ export class WorkersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateWorkerDto) {
-    return this.workersService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkerDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.workersService.update(id, dto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.workersService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body() body?: { reason?: string },
+  ) {
+    return this.workersService.remove(id, userId, body?.reason);
   }
 }

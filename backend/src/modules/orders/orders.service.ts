@@ -4,13 +4,17 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async create(dto: CreateOrderDto, clientId?: string) {
     const effectiveClientId = dto.clientId ?? clientId;
@@ -92,6 +96,15 @@ export class OrdersService {
           client: {
             select: { id: true, name: true, email: true },
           },
+          confirmedBy: { select: { id: true, name: true } },
+          shippedBy: { select: { id: true, name: true } },
+          deliveredBy: { select: { id: true, name: true } },
+          cancelledBy: { select: { id: true, name: true } },
+          truck: {
+            include: {
+              driver: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.order.count({ where }),
@@ -111,6 +124,10 @@ export class OrdersService {
         client: {
           select: { id: true, name: true, email: true },
         },
+        confirmedBy: { select: { id: true, name: true } },
+        shippedBy: { select: { id: true, name: true } },
+        deliveredBy: { select: { id: true, name: true } },
+        cancelledBy: { select: { id: true, name: true } },
       },
     });
 
@@ -121,11 +138,45 @@ export class OrdersService {
     return order;
   }
 
-  async update(id: string, dto: UpdateOrderDto) {
+  async update(id: string, dto: UpdateOrderDto, performedById?: string) {
     const order = await this.prisma.order.findUnique({ where: { id } });
 
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+
+    // ── Track status changes with responsible user ───────────────
+    const statusChangeData: Record<string, unknown> = {};
+    const now = new Date();
+
+    if (dto.status && dto.status !== order.status) {
+      switch (dto.status) {
+        case 'confirmed':
+          if (!performedById)
+            throw new BadRequestException('User ID required to confirm order');
+          statusChangeData.confirmedById = performedById;
+          statusChangeData.confirmedAt = now;
+          break;
+        case 'shipped':
+          if (!performedById)
+            throw new BadRequestException('User ID required to ship order');
+          statusChangeData.shippedById = performedById;
+          statusChangeData.shippedAt = now;
+          break;
+        case 'delivered':
+          if (!performedById)
+            throw new BadRequestException('User ID required to deliver order');
+          statusChangeData.deliveredById = performedById;
+          statusChangeData.deliveredAt = now;
+          break;
+        case 'cancelled':
+          if (!performedById)
+            throw new BadRequestException('User ID required to cancel order');
+          statusChangeData.cancelledById = performedById;
+          statusChangeData.cancelledAt = now;
+          statusChangeData.cancelledReason = dto.cancelledReason ?? null;
+          break;
+      }
     }
 
     // If a truckId is provided and status is confirmed, assign truck to this order
@@ -179,7 +230,7 @@ export class OrdersService {
       });
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: {
         ...(dto.status ? { status: dto.status } : {}),
@@ -187,6 +238,7 @@ export class OrdersService {
           ? { estimatedDeliveryDate: new Date(dto.estimatedDeliveryDate) }
           : {}),
         ...(dto.adminNote ? { adminNote: dto.adminNote } : {}),
+        ...statusChangeData,
       },
       include: {
         items: true,
@@ -195,6 +247,21 @@ export class OrdersService {
         },
       },
     });
+
+    // ── Audit log for status changes ────────────────────────────
+    if (dto.status && dto.status !== order.status && performedById) {
+      await this.audit.log({
+        entityType: 'order',
+        entityId: id,
+        action: dto.status,
+        oldValues: { status: order.status },
+        newValues: { status: dto.status },
+        reason: dto.cancelledReason ?? `Order ${dto.status}`,
+        performedById,
+      });
+    }
+
+    return updated;
   }
 
   /**
@@ -221,10 +288,16 @@ export class OrdersService {
       );
     }
 
+    const now = new Date();
+
     // Update order to delivered
     const updatedOrder = await this.prisma.order.update({
       where: { id },
-      data: { status: 'delivered' },
+      data: {
+        status: 'delivered',
+        deliveredById: userId,
+        deliveredAt: now,
+      },
       include: {
         items: true,
         client: {
@@ -240,6 +313,15 @@ export class OrdersService {
         data: { status: 'returning' },
       });
     }
+
+    await this.audit.log({
+      entityType: 'order',
+      entityId: id,
+      action: 'delivered',
+      oldValues: { status: 'shipped' },
+      newValues: { status: 'delivered' },
+      performedById: userId,
+    });
 
     return updatedOrder;
   }

@@ -23,12 +23,13 @@ import type {
   Claim,
   ClaimFormData,
   ClientUser,
+  AuditLogEntry,
 } from "@/types";
 
 /* ─── Clients (Admin) ─────────────────────────────────── */
 
-export async function getClients(): Promise<Client[]> {
-  return api.get<Client[]>("/clients");
+export async function getClients(showDeleted = false): Promise<Client[]> {
+  return api.get<Client[]>(`/clients${showDeleted ? "?showDeleted=true" : ""}`);
 }
 
 export async function getClient(id: string): Promise<Client> {
@@ -106,8 +107,8 @@ export async function updateWorker(
   return api.patch<Worker>(`/workers/${id}`, data);
 }
 
-export async function deleteWorker(id: string): Promise<void> {
-  await api.delete(`/workers/${id}`);
+export async function deleteWorker(id: string, reason?: string): Promise<void> {
+  await api.delete(`/workers/${id}`, reason ? { reason } : undefined);
 }
 
 /* ─── Products (Admin) ────────────────────────────────── */
@@ -191,8 +192,45 @@ export async function deliverOrder(id: string): Promise<Order> {
   return updateOrderStatus(id, "delivered");
 }
 
-export async function cancelOrder(id: string): Promise<Order> {
-  return updateOrderStatus(id, "cancelled");
+export async function cancelOrder(id: string, reason?: string): Promise<Order> {
+  return api.patch<Order>(`/orders/${id}`, {
+    status: "cancelled",
+    ...(reason ? { cancelledReason: reason } : {}),
+  });
+}
+
+/* ─── Clients — Restore & Permanent Delete ───────────── */
+
+export async function restoreClient(
+  id: string,
+): Promise<{ id: string; deletedAt: string | null; isActive: boolean }> {
+  return api.patch(`/clients/${id}/restore`);
+}
+
+export async function permanentDeleteClient(
+  id: string,
+): Promise<{ id: string; permanentlyDeleted: boolean }> {
+  return api.delete(`/clients/${id}/permanent`);
+}
+
+/* ─── Audit Log ──────────────────────────────────────── */
+
+export async function getAuditLogs(params?: {
+  page?: number;
+  limit?: number;
+  entityType?: string;
+  action?: string;
+}): Promise<{
+  data: AuditLogEntry[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.entityType) query.set("entityType", params.entityType);
+  if (params?.action) query.set("action", params.action);
+  const qs = query.toString();
+  return api.getPaginated(`/audit${qs ? `?${qs}` : ""}`);
 }
 
 /* ─── Trucks — Shipping & Returns ────────────────────── */

@@ -9,6 +9,7 @@ export interface Client {
   createdAt: string;
   isActive: boolean;
   approvedAt: string | null;
+  deletedAt: string | null;
   commonProducts: CommonProduct[];
   _count?: { orders: number; claims: number };
 }
@@ -100,6 +101,7 @@ export interface WorkerFormData {
   position: string;
   startDate: string;
   status: Worker["status"];
+  reason?: string;
 }
 
 // ─── Products (Factory/Admin) ──────────────────────────
@@ -149,10 +151,25 @@ export interface Order {
   totalAmount: number;
   status: OrderStatus;
   truckId?: string | null;
+  truck?: { driver?: { id: string; name: string } | null } | null;
   estimatedDeliveryDate: string | null;
   adminNote: string | null;
   createdAt: string;
   updatedAt: string;
+  // Status tracking
+  confirmedById?: string | null;
+  confirmedBy?: { id: string; name: string } | null;
+  confirmedAt?: string | null;
+  shippedById?: string | null;
+  shippedBy?: { id: string; name: string } | null;
+  shippedAt?: string | null;
+  deliveredById?: string | null;
+  deliveredBy?: { id: string; name: string } | null;
+  deliveredAt?: string | null;
+  cancelledById?: string | null;
+  cancelledBy?: { id: string; name: string } | null;
+  cancelledAt?: string | null;
+  cancelledReason?: string | null;
 }
 
 export interface OrderFormData {
@@ -195,5 +212,20 @@ export interface ClientUser {
   companyName: string;
   location: string;
   idNumber: string;
+  createdAt: string;
+}
+
+// ─── Audit Log ─────────────────────────────────────────
+
+export interface AuditLogEntry {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  oldValues: string | null;
+  newValues: string | null;
+  reason: string | null;
+  performedById: string;
+  performedBy: { id: string; name: string; email: string };
   createdAt: string;
 }

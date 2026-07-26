@@ -87,5 +87,23 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
-  delete: <T>(path: string) => request<T>("DELETE", path),
+  delete: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
+  /**
+   * GET request that preserves the full paginated response structure { data, meta }.
+   * Unlike `api.get`, this does NOT unwrap the `data` array from paginated responses.
+   */
+  getPaginated: <T>(path: string): Promise<T> => {
+    const url = `${API_BASE}${path}`;
+    const options: RequestInit = {
+      method: "GET",
+      headers: baseHeaders(),
+    };
+    return fetch(url, options).then(async (res) => {
+      if (!res.ok) {
+        const message = await extractError(res);
+        throw new Error(message);
+      }
+      return res.json();
+    });
+  },
 };

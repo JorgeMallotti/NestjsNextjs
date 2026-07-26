@@ -156,8 +156,11 @@ NestjsNextjs/
 │   │   │   ├── guards/               # JwtAuthGuard, RolesGuard
 │   │   │   ├── filters/              # Global exception filter
 │   │   │   ├── interceptors/         # Logging interceptor
+│   │   │   ├── pipes/                # SanitizationPipe (XSS defence)
+│   │   │   ├── utils/                # sanitizer.ts (HTML tag stripper)
 │   │   │   └── dto/                  # Shared DTOs (pagination)
 │   │   ├── modules/
+│   │   │   ├── audit/                # Audit logging (tracks all changes)
 │   │   │   ├── auth/                 # Authentication (register, login, JWT)
 │   │   │   ├── orders/               # Order CRUD, approval, truck assignment
 │   │   │   ├── claims/               # Claim filing and resolution
@@ -180,6 +183,8 @@ NestjsNextjs/
 │   │   │   │   └── admin/
 │   │   │   │       ├── login/        # Admin login (no sidebar)
 │   │   │   │       └── (dashboard)/  # Admin pages (with sidebar)
+│   │   │   │           ├── audit-log/  # Audit log viewer
+│   │   │   │           └── ...         # clients, trucks, workers, products, orders
 │   │   │   ├── layout.tsx            # Root layout (AnimatePresence)
 │   │   │   └── page.tsx              # Root redirect → /[lang]
 │   │   ├── components/
@@ -270,7 +275,7 @@ This will create the `comptech_pro` database and apply all migration files. The 
 
 | Model           | Description                                |
 | --------------- | ------------------------------------------ |
-| `User`          | Admin and client accounts                  |
+| `User`          | Admin and client accounts (soft-deletable) |
 | `Product`       | Computer components with weight (kg)       |
 | `Truck`         | Fleet vehicles with capacity tracking      |
 | `Worker`        | Employees with status (available, driving) |
@@ -278,6 +283,7 @@ This will create the `comptech_pro` database and apply all migration files. The 
 | `OrderItem`     | Individual products within an order        |
 | `Claim`         | Client claims for damaged/missing items    |
 | `CommonProduct` | Per-client frequently ordered products     |
+| `AuditLog`      | Full audit trail (entity, action, who, when, reason) |
 
 ### Running the Application
 
@@ -334,6 +340,7 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 | POST   | `/api/auth/register`                | Public       | Register a new client             |
 | POST   | `/api/auth/login`                   | Public       | Client login                      |
 | POST   | `/api/auth/login/admin`             | Public       | Admin login                       |
+| GET    | `/api/audit`                        | Admin        | View full audit log               |
 | GET    | `/api/orders`                       | Admin        | List all orders                   |
 | POST   | `/api/orders`                       | Admin/Client | Create an order                   |
 | PATCH  | `/api/orders/:id`                   | Admin        | Update order (approve with truck) |
@@ -347,6 +354,8 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 | GET    | `/api/products`                     | Admin        | List all products                 |
 | GET    | `/api/clients`                      | Admin        | List all clients                  |
 | PATCH  | `/api/clients/:id/approve`          | Admin        | Approve a client                  |
+| PATCH  | `/api/clients/:id/restore`          | Admin        | Restore soft-deleted client       |
+| DELETE | `/api/clients/:id/permanent`        | Admin        | Permanently delete client         |
 | GET    | `/api/claims`                       | Admin        | List all claims                   |
 | POST   | `/api/claims`                       | Client       | File a claim                      |
 
@@ -372,12 +381,30 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 - **Rate limiting** on public endpoints (login, register)
 - **Passwords hashed** with bcrypt (salt rounds ≥ 12)
 - **User IDs never in URLs** — all client-scoped data is extracted from JWT server-side
+- **XSS defence** — global `SanitizationPipe` strips HTML/JS from all string inputs (stored XSS prevention)
+- **Workflow enforcement** — trucks in motion cannot be edited/deleted; workers in non-available status cannot be modified or deleted
 
 ### Performance
 
 - **Optimistic updates** — the frontend never refetches data after a successful mutation; it updates local state immediately and rolls back on error
 - **Lazy loading** with `next/image` for images and `next/dynamic` for heavy components
 - **Framer Motion** respects `prefers-reduced-motion` for accessibility
+
+### Audit Trail & Accountability
+
+- **Full audit log** — every create, update, delete, soft-delete, restore, confirm, ship, deliver, and cancel action is recorded in `AuditLog`
+- **Who, what, when, why** — each log entry captures the performing user, affected entity, old/new values (as JSON diff), a textual reason, and a timestamp
+- **Order status tracking** — each status transition (`confirmed`, `shipped`, `delivered`, `cancelled`) records the responsible admin and timestamp directly on the Order
+- **Worker changes require justification** — sensitive edits (name, position, start date) require a mandatory reason
+- **Deletion requires reason** — worker and order deletions require a textual justification
+
+### Workflow Integrity
+
+- **Truck lifecycle enforced** — status transitions follow a strict cycle: `available → loading → shipping → returning → available`. Admin cannot skip steps or edit trucks in motion
+- **Worker status protected** — workers in `driving`, `on_vacation`, `sick_leave`, or `inactive` cannot have their status manually changed; `driving` is system-only (assigned when truck ships)
+- **Client soft delete** — clients are soft-deleted (with `deletedAt` timestamp), can be restored, or permanently deleted (only after soft-delete)
+- **Client deletion blocked with active orders** — clients with pending/active orders cannot be deleted
+- **Truck deletion blocked when in use** — trucks assigned to a driver or order cannot be deleted
 
 ### Database
 
@@ -419,6 +446,7 @@ Until this migration is implemented, token storage in `localStorage` is consider
 - **E2E test coverage** — tests exist for the app module but coverage should be extended to all feature modules
 - **Rate limiting configuration** — `@nestjs/throttler` is installed but guard configuration should be reviewed
 - **Seed scripts** — no database seed script exists; data must be entered manually through the UI or SQL
+- **Client-side XSS validation** — backend sanitization is in place; frontend validation is a future enhancement
 
 ---
 

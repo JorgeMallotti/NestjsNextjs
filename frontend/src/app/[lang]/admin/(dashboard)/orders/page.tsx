@@ -116,11 +116,15 @@ export default function AdminOrdersPage() {
     );
     setSaving(true);
     try {
-      await approveOrder(
+      const updated = await approveOrder(
         approveId,
         deliveryDate || undefined,
         adminNote || undefined,
         selectedTruckId || undefined,
+      );
+      // Update local state with server response (includes confirmedBy/confirmedAt)
+      setOrders((prev) =>
+        prev.map((o) => (o.id === approveId ? { ...o, ...updated } : o)),
       );
       setApproveId(null);
       setDeliveryDate("");
@@ -135,15 +139,26 @@ export default function AdminOrdersPage() {
 
   /* ─── Cancel order ─────────────────────────────────── */
 
+  const [cancelReason, setCancelReason] = useState("");
+  const [showCancelReason, setShowCancelReason] = useState<string | null>(null);
+
   const handleCancel = async (id: string) => {
+    if (!showCancelReason) {
+      setShowCancelReason(id);
+      return;
+    }
+    const reason = cancelReason.trim();
+    if (!reason) return;
     const prev = orders;
     setOrders((prev) =>
       prev.map((o) =>
         o.id === id ? { ...o, status: "cancelled" as const } : o,
       ),
     );
+    setShowCancelReason(null);
+    setCancelReason("");
     try {
-      await cancelOrderApi(id);
+      await cancelOrderApi(id, reason);
     } catch {
       setOrders(prev);
     }
@@ -239,6 +254,38 @@ export default function AdminOrdersPage() {
                       {new Date(
                         order.estimatedDeliveryDate,
                       ).toLocaleDateString()}
+                    </p>
+                  )}
+
+                  {/* Status tracking info */}
+                  {order.confirmedBy && order.confirmedAt && (
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      ✅ Confirmed by {order.confirmedBy.name} —{" "}
+                      {new Date(order.confirmedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {order.shippedBy && order.shippedAt && (
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      🚛 Shipped by {order.shippedBy.name} —{" "}
+                      {new Date(order.shippedAt).toLocaleDateString()}
+                      {order.truck?.driver?.name && (
+                        <> — Driver: {order.truck.driver.name}</>
+                      )}
+                    </p>
+                  )}
+                  {order.deliveredBy && order.deliveredAt && (
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      📦 Delivered by {order.deliveredBy.name} —{" "}
+                      {new Date(order.deliveredAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {order.cancelledBy && order.cancelledAt && (
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      ❌ Cancelled by {order.cancelledBy.name} —{" "}
+                      {new Date(order.cancelledAt).toLocaleDateString()}
+                      {order.cancelledReason && (
+                        <> — Reason: {order.cancelledReason}</>
+                      )}
                     </p>
                   )}
                 </div>
@@ -488,6 +535,49 @@ export default function AdminOrdersPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Cancel Reason Modal */}
+      <Modal
+        open={!!showCancelReason}
+        onClose={() => {
+          setShowCancelReason(null);
+          setCancelReason("");
+        }}
+        title={strings.orders.cancelOrder}
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Reason for cancellation <span className="text-danger">*</span>
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={3}
+              placeholder="Why is this order being cancelled?"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowCancelReason(null);
+                setCancelReason("");
+              }}
+            >
+              {strings.common.cancel}
+            </Button>
+            <Button
+              onClick={() => showCancelReason && handleCancel(showCancelReason)}
+              disabled={!cancelReason.trim()}
+              variant="danger"
+            >
+              {strings.orders.cancelOrder}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

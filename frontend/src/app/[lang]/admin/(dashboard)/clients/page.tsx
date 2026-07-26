@@ -15,6 +15,8 @@ import {
   updateClient,
   deleteClient,
   approveClient,
+  restoreClient,
+  permanentDeleteClient,
 } from "@/lib/api/client";
 import Badge from "@/components/ui/Badge";
 import type { Client, ClientFormData } from "@/types";
@@ -45,13 +47,18 @@ export default function ClientsPage() {
 
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+
+  // Permanent delete confirmation
+  const [permDeleteId, setPermDeleteId] = useState<string | null>(null);
 
   // Approve
   const [approving, setApproving] = useState(false);
 
-  useEffect(() => {
+  const loadClients = () => {
     let cancelled = false;
-    getClients()
+    setLoading(true);
+    getClients(showDeleted)
       .then((data) => {
         if (!cancelled) setClients(data);
       })
@@ -62,7 +69,11 @@ export default function ClientsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  };
+
+  useEffect(() => {
+    return loadClients();
+  }, [showDeleted]);
 
   const filtered = clients.filter(
     (c) =>
@@ -127,12 +138,33 @@ export default function ClientsPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     const prev = clients;
-    setClients((prev) => prev.filter((c) => c.id !== deleteId));
     setDeleteId(null);
     try {
       await deleteClient(deleteId);
+      loadClients(); // Refresh list
     } catch {
       setClients(prev);
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    const prev = clients;
+    try {
+      await restoreClient(id);
+      loadClients(); // Refresh list
+    } catch {
+      setClients(prev);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permDeleteId) return;
+    try {
+      await permanentDeleteClient(permDeleteId);
+      setPermDeleteId(null);
+      loadClients(); // Refresh list
+    } catch {
+      // Error handled silently
     }
   };
 
@@ -165,6 +197,15 @@ export default function ClientsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-xs"
           />
+          <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showDeleted}
+              onChange={(e) => setShowDeleted(e.target.checked)}
+              className="rounded border-zinc-300 dark:border-zinc-600"
+            />
+            Show deleted
+          </label>
           <Button onClick={openAdd}>{strings.clients.addClient}</Button>
         </div>
       </div>
@@ -234,7 +275,9 @@ export default function ClientsPage() {
                     {client._count?.orders ?? 0}
                   </Td>
                   <Td>
-                    {client.approvedAt ? (
+                    {client.deletedAt ? (
+                      <Badge color="gray">Deleted</Badge>
+                    ) : client.approvedAt ? (
                       <Badge color="green">{strings.orders.confirmed}</Badge>
                     ) : (
                       <Badge color="amber">
@@ -244,31 +287,53 @@ export default function ClientsPage() {
                   </Td>
                   <Td>
                     <div className="flex gap-2">
-                      {!client.approvedAt && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleApprove(client.id)}
-                          loading={approving}
-                        >
-                          {strings.common.confirm}
-                        </Button>
+                      {client.deletedAt ? (
+                        <>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleRestore(client.id)}
+                          >
+                            Restore
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPermDeleteId(client.id)}
+                            className="text-danger hover:text-red-700 dark:hover:text-red-400"
+                          >
+                            Delete permanently
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {!client.approvedAt && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleApprove(client.id)}
+                              loading={approving}
+                            >
+                              {strings.common.confirm}
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(client)}
+                          >
+                            {strings.common.edit}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteId(client.id)}
+                            className="text-danger hover:text-red-700 dark:hover:text-red-400"
+                          >
+                            {strings.common.delete}
+                          </Button>
+                        </>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(client)}
-                      >
-                        {strings.common.edit}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteId(client.id)}
-                        className="text-danger hover:text-red-700 dark:hover:text-red-400"
-                      >
-                        {strings.common.delete}
-                      </Button>
                     </div>
                   </Td>
                 </motion.tr>
@@ -332,16 +397,31 @@ export default function ClientsPage() {
         </div>
       </Modal>
 
-      {/* Delete confirmation */}
+      {/* Soft Delete confirmation */}
       <ConfirmDialog
         open={!!deleteId}
         title={strings.clients.deleteClient}
-        message={strings.clients.confirmDelete}
+        message={
+          "This will soft-delete the client (they will be deactivated). " +
+          strings.clients.confirmDelete
+        }
         confirmLabel={strings.common.delete}
         cancelLabel={strings.common.cancel}
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
+      />
+
+      {/* Permanent Delete confirmation */}
+      <ConfirmDialog
+        open={!!permDeleteId}
+        title="Permanently Delete Client"
+        message="This action CANNOT be undone. The client and all associated data will be permanently removed from the database."
+        confirmLabel="Delete Permanently"
+        cancelLabel={strings.common.cancel}
+        variant="danger"
+        onConfirm={handlePermanentDelete}
+        onCancel={() => setPermDeleteId(null)}
       />
     </motion.div>
   );

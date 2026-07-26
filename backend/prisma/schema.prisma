@@ -24,11 +24,19 @@ model User {
   idNumber        String?
   activationDate  DateTime?
   approvedAt      DateTime?      // null = pending approval, Date = approved
+  deletedAt       DateTime?      // Soft delete — null = active, Date = deleted
 
   // Relations
-  orders          Order[]
+  orders          Order[]       @relation("ClientOrders")
   claims          Claim[]
   commonProducts  CommonProduct[]
+  auditLogs       AuditLog[]     @relation("AuditLogPerformedBy")
+
+  // Order status tracking (who confirmed/shipped/delivered/cancelled)
+  confirmedOrders   Order[]   @relation("OrderConfirmedBy")
+  shippedOrders     Order[]   @relation("OrderShippedBy")
+  deliveredOrders   Order[]   @relation("OrderDeliveredBy")
+  cancelledOrders   Order[]   @relation("OrderCancelledBy")
 }
 
 // ─── Products ───────────────────────────────────────────
@@ -90,7 +98,7 @@ model Worker {
 model Order {
   id                   String       @id @default(cuid())
   clientId             String
-  client               User         @relation(fields: [clientId], references: [id])
+  client               User         @relation("ClientOrders", fields: [clientId], references: [id])
   items                OrderItem[]
   claims               Claim[]
   totalAmount          Float
@@ -101,6 +109,21 @@ model Order {
   truck                Truck?       @relation("CurrentTruckOrder")
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
+
+  // ── Status tracking (who did what and when) ──────────
+  confirmedById       String?
+  confirmedBy         User?        @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedAt         DateTime?
+  shippedById         String?
+  shippedBy           User?        @relation("OrderShippedBy", fields: [shippedById], references: [id])
+  shippedAt           DateTime?
+  deliveredById       String?
+  deliveredBy         User?        @relation("OrderDeliveredBy", fields: [deliveredById], references: [id])
+  deliveredAt         DateTime?
+  cancelledById       String?
+  cancelledBy         User?        @relation("OrderCancelledBy", fields: [cancelledById], references: [id])
+  cancelledAt         DateTime?
+  cancelledReason     String?
 }
 
 model OrderItem {
@@ -146,4 +169,19 @@ model CommonProduct {
   frequency String // weekly | biweekly | monthly | quarterly
 
   @@unique([clientId, type])
+}
+
+// ─── Audit Log ──────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String   // "worker" | "truck" | "client" | "order" | "product" | "claim"
+  entityId    String   // The ID of the affected record
+  action      String   // "create" | "update" | "delete" | "soft_delete" | "restore" | "confirm" | "ship" | "deliver" | "cancel"
+  oldValues   String?  // JSON — previous state before the change (nullable for creates)
+  newValues   String?  // JSON — new state after the change (nullable for deletes)
+  reason      String?  // Justification for the change (required for sensitive edits/deletions)
+  performedById String
+  performedBy User     @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
+  createdAt   DateTime @default(now())
 }

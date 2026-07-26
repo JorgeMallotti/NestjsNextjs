@@ -57,11 +57,15 @@ export class OrdersController {
 
   @Roles('admin')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
-    return this.ordersService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.update(id, dto, userId);
   }
 
-  @Roles('client')
+  @Roles('admin', 'client')
   @Patch(':id/deliver')
   deliver(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return this.ordersService.deliver(id, userId);

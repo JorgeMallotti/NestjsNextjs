@@ -1,4 +1,10 @@
-import { IsOptional, IsIn, IsDateString, IsString } from 'class-validator';
+import {
+  IsOptional,
+  IsIn,
+  IsDateString,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateOrderDto {
   @IsOptional()
@@ -16,4 +22,9 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsString()
   truckId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  cancelledReason?: string;
 }

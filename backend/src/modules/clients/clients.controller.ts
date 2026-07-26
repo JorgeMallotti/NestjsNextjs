@@ -15,6 +15,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,13 +25,16 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Post()
-  create(@Body() dto: CreateClientDto) {
-    return this.clientsService.create(dto);
+  create(@Body() dto: CreateClientDto, @CurrentUser('id') userId: string) {
+    return this.clientsService.create(dto, userId);
   }
 
   @Get()
-  findAll(@Query() pagination: PaginationDto) {
-    return this.clientsService.findAll(pagination);
+  findAll(
+    @Query() pagination: PaginationDto,
+    @Query('showDeleted') showDeleted?: string,
+  ) {
+    return this.clientsService.findAll(pagination, showDeleted === 'true');
   }
 
   @Get('stats')
@@ -49,12 +53,22 @@ export class ClientsController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.clientsService.remove(id);
+  softRemove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.clientsService.softRemove(id, userId);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.clientsService.restore(id, userId);
+  }
+
+  @Delete(':id/permanent')
+  permanentRemove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.clientsService.permanentRemove(id, userId);
   }
 
   @Patch(':id/approve')
-  approve(@Param('id') id: string) {
-    return this.clientsService.approve(id);
+  approve(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.clientsService.approve(id, userId);
   }
 }

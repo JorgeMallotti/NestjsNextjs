@@ -1,17 +1,31 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
-  async create(dto: CreateProductDto) {
-    return this.prisma.product.create({
+  async create(dto: CreateProductDto, performedById: string) {
+    const product = await this.prisma.product.create({
       data: dto,
     });
+
+    await this.audit.log({
+      entityType: 'product',
+      entityId: product.id,
+      action: 'create',
+      newValues: product as unknown as Record<string, unknown>,
+      performedById,
+    });
+
+    return product;
   }
 
   async findAll(pagination: PaginationDto) {
@@ -52,30 +66,56 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, dto: UpdateProductDto) {
+  async update(id: string, dto: UpdateProductDto, performedById?: string) {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data: dto,
     });
+
+    if (performedById) {
+      await this.audit.log({
+        entityType: 'product',
+        entityId: id,
+        action: 'update',
+        oldValues: product as unknown as Record<string, unknown>,
+        newValues: updated as unknown as Record<string, unknown>,
+        performedById,
+      });
+    }
+
+    return updated;
   }
 
-  async remove(id: string) {
+  async remove(id: string, performedById: string) {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    const oldValues = product as unknown as Record<string, unknown>;
+
     // Soft delete
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data: { isActive: false },
     });
+
+    await this.audit.log({
+      entityType: 'product',
+      entityId: id,
+      action: 'delete',
+      oldValues,
+      newValues: { isActive: false },
+      performedById,
+    });
+
+    return updated;
   }
 }

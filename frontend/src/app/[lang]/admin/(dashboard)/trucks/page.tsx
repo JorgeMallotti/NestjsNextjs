@@ -160,6 +160,20 @@ export default function TrucksPage() {
     disabled: strings.trucks.disabled,
   };
 
+  /** A truck is "in motion" — cannot be edited, must follow the ship/return workflow */
+  const isTruckInMotion = (truck: Truck) =>
+    !!truck.driver ||
+    truck.status === "shipping" ||
+    truck.status === "returning";
+
+  /** Derive whether the currently-editing truck is in motion */
+  const editingTruck = editingId
+    ? trucks.find((t) => t.id === editingId)
+    : null;
+  const isEditingInMotion = editingTruck
+    ? isTruckInMotion(editingTruck)
+    : false;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -298,43 +312,61 @@ export default function TrucksPage() {
                       >
                         {strings.common.edit}
                       </Button>
-                      <div className="relative group">
-                        <Button variant="ghost" size="sm">
-                          {strings.common.filter}
-                        </Button>
-                        <div className="absolute right-0 top-full z-10 mt-1 hidden w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
-                          {(
-                            [
-                              "available",
-                              "loading",
-                              "shipping",
-                              "returning",
-                              "under_repair",
-                              "disabled",
-                            ] as Truck["status"][]
-                          ).map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => handleStatusChange(truck.id, s)}
-                              className={`w-full rounded-md px-3 py-1.5 text-left text-xs transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700 ${
-                                truck.status === s
-                                  ? "bg-zinc-100 font-medium dark:bg-zinc-700"
-                                  : ""
-                              }`}
-                            >
-                              {statusLabel[s]}
-                            </button>
-                          ))}
+                      {isTruckInMotion(truck) ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-amber-600 dark:text-amber-400"
+                          title="Truck is in motion — use Ship/Return workflow to change status"
+                        >
+                          🔒 {strings.trucks.status}
+                        </span>
+                      ) : (
+                        <div className="relative group">
+                          <Button variant="ghost" size="sm">
+                            {strings.common.filter}
+                          </Button>
+                          <div className="absolute right-0 top-full z-10 mt-1 hidden w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
+                            {(
+                              [
+                                "available",
+                                "loading",
+                                "shipping",
+                                "returning",
+                                "under_repair",
+                                "disabled",
+                              ] as Truck["status"][]
+                            ).map((s) => (
+                              <button
+                                key={s}
+                                onClick={() => handleStatusChange(truck.id, s)}
+                                className={`w-full rounded-md px-3 py-1.5 text-left text-xs transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700 ${
+                                  truck.status === s
+                                    ? "bg-zinc-100 font-medium dark:bg-zinc-700"
+                                    : ""
+                                }`}
+                              >
+                                {statusLabel[s]}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteId(truck.id)}
-                        className="text-danger hover:text-red-700 dark:hover:text-red-400"
-                      >
-                        {strings.common.delete}
-                      </Button>
+                      )}
+                      {isTruckInMotion(truck) || truck.currentOrder ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-400"
+                          title="Cannot delete a truck that is in use"
+                        >
+                          🚫 {strings.common.delete}
+                        </span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteId(truck.id)}
+                          className="text-danger hover:text-red-700 dark:hover:text-red-400"
+                        >
+                          {strings.common.delete}
+                        </Button>
+                      )}
                     </div>
                   </Td>
                 </motion.tr>
@@ -351,16 +383,26 @@ export default function TrucksPage() {
         title={editingId ? strings.trucks.editTruck : strings.trucks.addTruck}
       >
         <div className="space-y-4">
+          {isEditingInMotion && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+              ⚠️ This truck is currently in motion (driver assigned, shipping,
+              or returning). Most fields cannot be changed. Use the Ship/Return
+              workflow to change its status.
+            </div>
+          )}
+
           <Input
             label={strings.trucks.plateNumber}
             value={form.plateNumber}
             onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
+            disabled={!!editingId}
             required
           />
           <Input
             label={strings.trucks.model}
             value={form.model}
             onChange={(e) => setForm({ ...form, model: e.target.value })}
+            disabled={isEditingInMotion}
             required
           />
           <Input
@@ -370,6 +412,7 @@ export default function TrucksPage() {
             onChange={(e) =>
               setForm({ ...form, capacity: Number(e.target.value) })
             }
+            disabled={isEditingInMotion}
             required
           />
           <Input
@@ -379,6 +422,7 @@ export default function TrucksPage() {
             onChange={(e) =>
               setForm({ ...form, kilometrage: Number(e.target.value) })
             }
+            disabled={isEditingInMotion}
             required
           />
           <div className="flex flex-col gap-1.5">
@@ -393,7 +437,8 @@ export default function TrucksPage() {
                   status: e.target.value as Truck["status"],
                 })
               }
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+              disabled={isEditingInMotion}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             >
               <option value="available">{strings.trucks.available}</option>
               <option value="loading">{strings.trucks.loading}</option>

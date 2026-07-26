@@ -15,6 +15,7 @@ import { UpdateTruckDto } from './dto/update-truck.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,8 +25,8 @@ export class TrucksController {
   constructor(private readonly trucksService: TrucksService) {}
 
   @Post()
-  create(@Body() dto: CreateTruckDto) {
-    return this.trucksService.create(dto);
+  create(@Body() dto: CreateTruckDto, @CurrentUser('id') userId: string) {
+    return this.trucksService.create(dto, userId);
   }
 
   @Get()
@@ -44,25 +45,34 @@ export class TrucksController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateTruckDto) {
-    return this.trucksService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTruckDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.trucksService.update(id, dto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.trucksService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.trucksService.remove(id, userId);
   }
 
   @Post(':id/ship')
-  ship(@Param('id') id: string, @Body() body: { driverId: string }) {
-    return this.trucksService.ship(id, body.driverId);
+  ship(
+    @Param('id') id: string,
+    @Body() body: { driverId: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.trucksService.ship(id, body.driverId, userId);
   }
 
   @Post(':id/return')
   returnToFactory(
     @Param('id') id: string,
     @Body() body: { newKilometrage: number },
+    @CurrentUser('id') userId: string,
   ) {
-    return this.trucksService.returnToFactory(id, body.newKilometrage);
+    return this.trucksService.returnToFactory(id, body.newKilometrage, userId);
   }
 }

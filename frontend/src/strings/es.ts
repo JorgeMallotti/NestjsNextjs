@@ -16,6 +16,7 @@ const strings = {
     purchaseHistory: "Historial de Compras",
     placeOrder: "Realizar Pedido",
     claims: "Reclamaciones",
+    auditLog: "Registro de Auditoría",
   },
   home: {
     title: "CompTech Pro",

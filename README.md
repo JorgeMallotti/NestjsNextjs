@@ -91,8 +91,9 @@ The MVC pattern was chosen for three fundamental reasons:
 | **NestJS**            | ^11.0.1 | Application framework (Controllers, Modules) |
 | **Prisma ORM**        | ^7.8.0  | Database ORM with migrations                 |
 | **PostgreSQL**        | —       | Relational database                          |
-| **Passport/JWT**      | ^0.7.0  | Authentication (JSON Web Tokens)             |
-| **bcrypt**            | ^6.0.0  | Password hashing                             |
+| **Passport/JWT**      | ^0.7.0  | Authentication (JWT in HttpOnly cookies)      |
+| **cookie-parser**     | ^1.4.7  | Cookie parsing for JWT extraction             |
+| **bcrypt**            | ^6.0.0  | Password hashing (salt rounds ≥ 12)           |
 | **class-validator**   | ^0.15.1 | DTO validation decorators                    |
 | **Helmet**            | ^8.2.0  | Security headers                             |
 | **@nestjs/throttler** | ^6.5.0  | Rate limiting on public endpoints            |
@@ -136,7 +137,7 @@ PostgreSQL ◄── Prisma (ORM + Migrations) ◄── NestJS Services ◄─�
                                          Tailwind CSS + Framer Motion
 ```
 
-The backend owns all business logic and data access. The frontend is purely a consumer of the REST API — it never calls the database directly, never duplicates validation logic, and never stores business state beyond what is needed for the current session (JWT token).
+The backend owns all business logic and data access. The frontend is purely a consumer of the REST API — it never calls the database directly, never duplicates validation logic, and never stores business state beyond what is needed for the current session (user info for display). The JWT token is stored in an HttpOnly cookie, making it inaccessible to JavaScript and immune to XSS attacks.
 
 ---
 
@@ -147,9 +148,12 @@ NestjsNextjs/
 ├── backend/                          # NestJS 11 application
 │   ├── prisma/
 │   │   ├── schema.prisma             # Database schema (single source of truth)
+│   │   ├── seed.ts                   # Demo data seeder (run via prisma db seed)
 │   │   └── migrations/               # Versioned migration files
+│   ├── scripts/
+│   │   └── reset-demo.sh             # CLI script for database reset + reseed
 │   ├── src/
-│   │   ├── main.ts                   # App bootstrap (middleware, CORS, validation)
+│   │   ├── main.ts                   # App bootstrap (middleware, CORS, validation, cookies)
 │   │   ├── app.module.ts             # Root module
 │   │   ├── common/
 │   │   │   ├── decorators/           # @CurrentUser, @Roles, @Public
@@ -161,15 +165,20 @@ NestjsNextjs/
 │   │   │   └── dto/                  # Shared DTOs (pagination)
 │   │   ├── modules/
 │   │   │   ├── audit/                # Audit logging (tracks all changes)
-│   │   │   ├── auth/                 # Authentication (register, login, JWT)
+│   │   │   ├── auth/                 # Authentication (register, login, JWT via HttpOnly cookies)
+│   │   │   ├── demo/                 # Demo 1-click login + database reset endpoint
 │   │   │   ├── orders/               # Order CRUD, approval, truck assignment
 │   │   │   ├── claims/               # Claim filing and resolution
 │   │   │   ├── clients/              # Client management, approval, stats
 │   │   │   ├── products/             # Product catalog
 │   │   │   ├── trucks/               # Truck fleet, shipping, returns
 │   │   │   └── workers/              # Worker management, driver assignment
-│   │   └── prisma/                   # PrismaService (database client)
+│   │   └── prisma/                   # PrismaService (database client with adapter-pg)
+│   ├── Dockerfile                    # Multi-stage production build
+│   ├── .dockerignore
 │   └── test/                         # E2E tests
+│
+├── docker-compose.yml                # PostgreSQL for local development
 │
 ├── frontend/                         # Next.js 16 application
 │   ├── src/
@@ -192,7 +201,7 @@ NestjsNextjs/
 │   │   │   ├── layout/               # Sidebar, navigation
 │   │   │   └── features/             # Feature-specific components
 │   │   ├── lib/
-│   │   │   ├── api/                  # API client (api.ts, auth.ts, client.ts)
+│   │   │   ├── api/                  # API client (api.ts, auth.ts, demo.ts, client.ts)
 │   │   │   └── utils/                # Helper functions
 │   │   ├── hooks/                    # Custom React hooks
 │   │   ├── strings/                  # i18n language files (en, es, pt)
@@ -240,23 +249,28 @@ Create a `.env` file in `backend/` (copy from `.env.example`):
 
 ```env
 # Database connection
-DATABASE_URL="postgresql://<user>:<password>@localhost:5432/comptech_pro"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/comptech_pro"
 
-# JWT Configuration
-JWT_SECRET="your_jwt_secret_here_change_in_production"
+# ─── JWT (generate with: openssl rand -base64 64) ──────
+JWT_SECRET="change_me_in_production"
 JWT_EXPIRES_IN="7d"
 
-# Auth Bypass (set to "true" to skip password verification during development)
+# ─── Auth (dev only — NEVER true in production) ────────
 AUTH_BYPASS="true"
+
+# ─── Demo Reset (generate with: openssl rand -hex 32) ──
+# Used to protect POST /api/demo/reset endpoint.
+# Set the same value in cron-job.org as x-reset-secret header.
+RESET_SECRET="change_me_in_production"
 
 # Server port (backend runs on 3001, frontend on 3000)
 PORT=3001
 
-# Frontend URL (for CORS)
+# Frontend URL (for CORS — update to Vercel URL in production)
 FRONTEND_URL="http://localhost:3000"
 ```
 
-> **Note:** When `AUTH_BYPASS=true`, any password is accepted during login — useful for local development.
+> **Note:** When `AUTH_BYPASS=true`, any password is accepted during login — for local dev only.
 
 ### Database Setup
 
@@ -264,26 +278,32 @@ FRONTEND_URL="http://localhost:3000"
 # Navigate to backend
 cd backend
 
+# Start PostgreSQL (Docker)
+docker compose up -d
+
 # Apply all migrations to create/update the database
 npx prisma migrate dev
+
+# Seed the database with realistic demo data (admin, clients, products, etc.)
+npx prisma db seed
 
 # (Optional) Open Prisma Studio to view data
 npx prisma studio
 ```
 
-This will create the `comptech_pro` database and apply all migration files. The schema includes these models:
+This will create the `comptech_pro` database, apply all migration files, and populate it with realistic demo data. The schema includes these models:
 
-| Model           | Description                                |
-| --------------- | ------------------------------------------ |
-| `User`          | Admin and client accounts (soft-deletable) |
-| `Product`       | Computer components with weight (kg)       |
-| `Truck`         | Fleet vehicles with capacity tracking      |
-| `Worker`        | Employees with status (available, driving) |
-| `Order`         | Client orders with delivery address        |
-| `OrderItem`     | Individual products within an order        |
-| `Claim`         | Client claims for damaged/missing items    |
-| `CommonProduct` | Per-client frequently ordered products     |
-| `AuditLog`      | Full audit trail (entity, action, who, when, reason) |
+| Model           | Description                                                |
+| --------------- | ---------------------------------------------------------- |
+| `User`          | Admin and client accounts (soft-deletable)                 |
+| `Product`       | Computer components with brand, type, price, weight (kg)   |
+| `Truck`         | Fleet vehicles with capacity, kilometrage, driver tracking |
+| `Worker`        | Employees with position, start date, status                |
+| `Order`         | Client orders with delivery address, status tracking       |
+| `OrderItem`     | Individual products within an order                        |
+| `Claim`         | Client claims for damaged/missing items                    |
+| `CommonProduct` | Per-client frequently ordered products (with frequency)    |
+| `AuditLog`      | Full audit trail (entity, action, who, when, reason)       |
 
 ### Running the Application
 
@@ -301,12 +321,32 @@ npm run dev
 
 Open **http://localhost:3000** in your browser. You'll be redirected to `/en` (English).
 
+### Demo Accounts (Pre-seeded)
+
+After running `npx prisma db seed`, you can log in instantly with:
+
+| Role | Email | Password | Company |
+|---|---|---|---|
+| **Admin** | `admin@comptechpro.com` | `demo123456` | CompTech Pro |
+| **Client** | `contacto@bytewise.pt` | `demo123456` | ByteWise Lda. (Porto) |
+| **Client** | `geral@inovadata.pt` | `demo123456` | InovaData SA (Lisboa) |
+| **Client** | `compras@datacore.pt` | `demo123456` | DataCore Solutions (Aveiro) |
+
+### 1-Click Demo Login
+
+From the **homepage**, you can log in without typing credentials:
+
+- **Admin**: click the purple "Login as Admin" card → instant access to the full admin dashboard
+- **Client**: click any blue company card (ByteWise, InovaData, DataCore) → instant access to that client's portal
+
+This is powered by `POST /api/demo/login` — a no-password endpoint for demo accounts only.
+
 ### Default Workflow
 
-1. **Register a client** at `/en/register`
-2. **Login as client** at `/en/login` (`email@email.com` with any password when `AUTH_BYPASS=true`)
+1. **Register a client** at `/en/register` (or use a demo client account)
+2. **Login as client** at `/en/login` — or use 1-click demo from the homepage
 3. **Place an order** at `/en/client/orders` — select products, enter delivery address
-4. **Login as admin** at `/en/admin/login` (`admin@test.com` with any password when `AUTH_BYPASS=true`)
+4. **Login as admin** at `/en/admin/login` — or use 1-click demo from the homepage
 5. **Approve the order** at `/en/admin/orders` — select a truck, set delivery date
 6. **Ship the truck** at `/en/admin/trucks` — select a driver
 7. **Client marks delivered** at `/en/client/orders` — order is marked as delivered
@@ -338,8 +378,13 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 | Method | Endpoint                            | Access       | Description                       |
 | ------ | ----------------------------------- | ------------ | --------------------------------- |
 | POST   | `/api/auth/register`                | Public       | Register a new client             |
-| POST   | `/api/auth/login`                   | Public       | Client login                      |
-| POST   | `/api/auth/login/admin`             | Public       | Admin login                       |
+| POST   | `/api/auth/login`                   | Public       | Client login (sets HttpOnly cookie) |
+| POST   | `/api/auth/login/admin`             | Public       | Admin login (sets HttpOnly cookie) |
+| POST   | `/api/auth/logout`                  | Public       | Clear auth cookie                 |
+| GET    | `/api/auth/profile`                 | Authenticated| Get current user profile          |
+| GET    | `/api/demo/accounts`                | Public       | List demo accounts (1-click login)|
+| POST   | `/api/demo/login`                   | Public       | 1-click demo login (sets cookie)  |
+| POST   | `/api/demo/reset`                   | Public*      | Reset database to seed state (*protected by RESET_SECRET) |
 | GET    | `/api/audit`                        | Admin        | View full audit log               |
 | GET    | `/api/orders`                       | Admin        | List all orders                   |
 | POST   | `/api/orders`                       | Admin/Client | Create an order                   |
@@ -375,6 +420,8 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 ### Security
 
 - **JWT authentication** with Passport strategies
+- **HttpOnly Secure SameSite cookies** for JWT storage — JavaScript cannot access the token, protecting against XSS attacks
+- **Fallback to Bearer header** — the JWT strategy reads from the cookie first, then falls back to `Authorization: Bearer` (for API clients and dev)
 - **Role-based access control** (`@Roles('admin', 'client')`) for every endpoint
 - **Helmet middleware** for security headers
 - **CORS restricted** to the frontend origin only
@@ -422,31 +469,134 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 
 ## Known Technical Debt
 
-### JWT Token Storage in localStorage
+### Refresh Token Pattern
 
-**Current state (development):** JWT access tokens are stored in `localStorage` via the `auth.ts` module:
+**Current state:** JWT access tokens are stored in **HttpOnly cookies** (migrated from localStorage). JavaScript cannot access the token, which protects against XSS attacks.
 
-```typescript
-localStorage.setItem("auth_token", accessToken);
-```
+**Future improvement:** Implement a **refresh token pattern**:
+1. Short-lived access token (e.g., 15 min) stored in an HttpOnly cookie
+2. Long-lived refresh token (e.g., 7 days) stored in a separate HttpOnly cookie
+3. When the access token expires, the backend uses the refresh token to issue a new one automatically
+4. No user-facing logout required — seamless token rotation
 
-This approach is functional for development but **vulnerable to XSS attacks in production**. Any injected JavaScript can read `localStorage` and exfiltrate the token.
-
-**Production goal:** Migrate to **HTTP-only, Secure, SameSite cookies** with a refresh token pattern:
-
-1. On login, the backend sets the access token as an HTTP-only cookie (`Set-Cookie` header)
-2. The browser sends the cookie automatically with each request
-3. If the access token expires, a refresh token (also HTTP-only) is used to obtain a new one silently
-4. JavaScript never touches the raw JWT — `localStorage` is not involved
-
-Until this migration is implemented, token storage in `localStorage` is considered **documented technical debt**.
+This is a **nice-to-have enhancement** rather than a security fix, since the current setup already protects against XSS.
 
 ### Other Known Areas for Improvement
 
 - **E2E test coverage** — tests exist for the app module but coverage should be extended to all feature modules
 - **Rate limiting configuration** — `@nestjs/throttler` is installed but guard configuration should be reviewed
-- **Seed scripts** — no database seed script exists; data must be entered manually through the UI or SQL
+- **Demo data** — the seed script populates the database with realistic demo data (PT-based companies, products, orders). In production, a real registration flow replaces the demo data
 - **Client-side XSS validation** — backend sanitization is in place; frontend validation is a future enhancement
+
+---
+
+## Docker
+
+A multi-stage `Dockerfile` is available in `backend/` for production builds:
+
+```bash
+# Build the image
+cd backend
+docker build -t comptech-backend .
+
+# Run with PostgreSQL (or use docker-compose for local dev)
+docker compose up -d
+```
+
+The `docker-compose.yml` at the project root starts a PostgreSQL instance for local development:
+
+```bash
+docker compose up -d    # Start PostgreSQL on port 5432
+docker compose down     # Stop PostgreSQL
+```
+
+## Deployment
+
+### Backend — Railway
+
+1. Create a new project in [Railway](https://railway.app) and connect your GitHub repository
+2. Set **Root Directory** to `backend`
+3. Add the **PostgreSQL** plugin (Railway injects `DATABASE_URL` automatically)
+4. Set environment variables:
+
+   | Variable | Value |
+   |---|---|
+   | `JWT_SECRET` | Generate with `openssl rand -base64 64` |
+   | `JWT_EXPIRES_IN` | `7d` |
+   | `RESET_SECRET` | Generate with `openssl rand -hex 32` |
+   | `FRONTEND_URL` | Your Vercel URL (e.g., `https://demo.vercel.app`) |
+   | `AUTH_BYPASS` | `false` |
+   | `NODE_ENV` | `production` |
+
+5. Deploy, then open **Railway Console** and run:
+
+   ```bash
+   npx prisma migrate deploy
+   npx prisma db seed
+   ```
+
+### Frontend — Vercel
+
+1. Connect your GitHub repository in [Vercel](https://vercel.com)
+2. Set **Root Directory** to `frontend`
+3. Set environment variable:
+
+   | Variable | Value |
+   |---|---|
+   | `NEXT_PUBLIC_API_URL` | `https://your-railway-app.up.railway.app/api` |
+
+4. Deploy
+
+### Automatic Database Reset (24h)
+
+Use [cron-job.org](https://cron-job.org) (free) to:
+
+1. **Keep the backend awake** — ping every 10 minutes:
+   - URL: `https://your-railway-app.up.railway.app/api/demo/accounts`
+   - Method: `GET`
+
+2. **Reset the database every 24 hours** — restores seed data:
+   - URL: `https://your-railway-app.up.railway.app/api/demo/reset`
+   - Method: `POST`
+   - Header: `x-reset-secret: <your_reset_secret>`
+
+---
+
+## Authentication Flow
+
+The project uses **HttpOnly cookies** for JWT storage — the most secure approach for browser-based authentication:
+
+```
+1. Login ─────────────────────────────────────────────┐
+   User submits email + password                       │
+                                                       ▼
+2. Server verifies credentials ───────────────────────┐
+   If valid, creates JWT payload:                      │
+   { sub: userId, email, role }                        │
+   Signs with JWT_SECRET                               │
+                                                       ▼
+3. Server responds ───────────────────────────────────┐
+   Set-Cookie: auth_token=<jwt>; HttpOnly;             │
+               Secure; SameSite=Lax; Path=/;           │
+               Max-Age=604800 (7 days)                 │
+   Response body: { user: { id, name, email, role } }  │
+                                                       ▼
+4. Browser stores cookie automatically ───────────────┐
+   JavaScript CANNOT read the cookie (HttpOnly)        │
+   Cookie is sent only over HTTPS (Secure)             │
+   Cookie is not sent cross-site (SameSite=Lax)        │
+                                                       ▼
+5. Authenticated requests ────────────────────────────┐
+   fetch(url, { credentials: 'include' })              │
+   Browser sends cookie automatically                  │
+                                                       ▼
+6. Server validates JWT from cookie ──────────────────┐
+   Reads auth_token cookie                             │
+   Verifies signature with JWT_SECRET                  │
+   Extracts user → processes request                   │
+```
+
+**For API clients** (Postman, curl, mobile apps), the server also accepts `Authorization: Bearer <token>` as a fallback.
 
 ---
 

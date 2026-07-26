@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { loginAdmin, saveAuth } from "@/lib/api/auth";
+import { loginAdmin, saveUser } from "@/lib/api/auth";
+import { getDemoAccounts, demoLogin } from "@/lib/api/demo";
 
 export default function AdminLoginPage() {
   const params = useParams();
@@ -21,6 +22,18 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const [adminId, setAdminId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDemoAccounts()
+      .then((accounts) => {
+        const admin = accounts.find((a) => a.role === "admin");
+        if (admin) setAdminId(admin.id);
+      })
+      .catch(() => {});
+  }, []);
 
   const validate = (): boolean => {
     let valid = true;
@@ -56,13 +69,25 @@ export default function AdminLoginPage() {
 
     try {
       const result = await loginAdmin(email, password);
-      saveAuth(result.accessToken, result.user);
+      saveUser(result.user);
       router.push(`/${lang}/admin/dashboard`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : strings.admin.invalidCredentials,
       );
       setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    if (!adminId) return;
+    setDemoLoading(true);
+    try {
+      const result = await demoLogin(adminId);
+      saveUser(result.user);
+      router.push(`/${lang}/admin/dashboard`);
+    } catch {
+      setDemoLoading(false);
     }
   };
 
@@ -112,6 +137,32 @@ export default function AdminLoginPage() {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {strings.admin.welcomeBack}
           </p>
+        </div>
+
+        {/* 1-click demo login */}
+        {adminId && (
+          <div className="mb-6">
+            <Button
+              onClick={handleDemoLogin}
+              loading={demoLoading}
+              className="w-full"
+              size="lg"
+            >
+              🚀 {strings.demo.adminLogin} (1-click)
+            </Button>
+            <div className="mt-2 text-center text-xs text-zinc-400">
+              admin@comptechpro.com
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex-1 border-t border-zinc-200 dark:border-zinc-700" />
+          <span className="text-xs text-zinc-400">
+            {strings.demo.orStandardLogin}
+          </span>
+          <div className="flex-1 border-t border-zinc-200 dark:border-zinc-700" />
         </div>
 
         {/* Form */}

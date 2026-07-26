@@ -1,13 +1,16 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
+/* ─── Types ────────────────────────────────────────────── */
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
 interface LoginResponse {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
+  user: AuthUser;
 }
 
 interface RegisterResponse {
@@ -30,9 +33,8 @@ interface RegisterData {
   idNumber?: string;
 }
 
-/**
- * Extract error message from a failed API response.
- */
+/* ─── Helpers ──────────────────────────────────────────── */
+
 async function extractError(res: Response): Promise<string> {
   try {
     const body = await res.json();
@@ -44,14 +46,30 @@ async function extractError(res: Response): Promise<string> {
 }
 
 /**
+ * Base fetch options with credentials included (for HttpOnly cookie).
+ */
+function authFetchOptions(method: string, body?: unknown): RequestInit {
+  const options: RequestInit = {
+    method,
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  };
+  if (body !== undefined) {
+    options.body = JSON.stringify(body);
+  }
+  return options;
+}
+
+/* ─── Auth API ─────────────────────────────────────────── */
+
+/**
  * Register a new client account.
  */
 export async function register(data: RegisterData): Promise<RegisterResponse> {
-  const res = await fetch(`${API_BASE}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  const res = await fetch(
+    `${API_BASE}/auth/register`,
+    authFetchOptions("POST", data),
+  );
 
   if (!res.ok) {
     const message = await extractError(res);
@@ -63,16 +81,16 @@ export async function register(data: RegisterData): Promise<RegisterResponse> {
 
 /**
  * Login as a client.
+ * Server sets HttpOnly cookie — no token to store client-side.
  */
 export async function login(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  const res = await fetch(
+    `${API_BASE}/auth/login`,
+    authFetchOptions("POST", { email, password }),
+  );
 
   if (!res.ok) {
     const message = await extractError(res);
@@ -84,16 +102,16 @@ export async function login(
 
 /**
  * Login as an admin.
+ * Server sets HttpOnly cookie — no token to store client-side.
  */
 export async function loginAdmin(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login/admin`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  const res = await fetch(
+    `${API_BASE}/auth/login/admin`,
+    authFetchOptions("POST", { email, password }),
+  );
 
   if (!res.ok) {
     const message = await extractError(res);
@@ -103,29 +121,55 @@ export async function loginAdmin(
   return res.json();
 }
 
-/* ─── Session management ──────────────────────────────── */
+/**
+ * Logout — calls backend to clear the HttpOnly cookie.
+ */
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, authFetchOptions("POST"));
+  clearUser();
+}
 
-const TOKEN_KEY = "auth_token";
+/**
+ * Verify current session by fetching user profile.
+ * Returns null if not authenticated (cookie missing/expired).
+ */
+export async function fetchProfile(): Promise<AuthUser | null> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+/* ─── Session management (user info only — NOT the token) ── */
+
 const USER_KEY = "auth_user";
 
-export function saveAuth(
-  accessToken: string,
-  user: LoginResponse["user"],
-): void {
-  localStorage.setItem(TOKEN_KEY, accessToken);
+/**
+ * Save user info to localStorage for display purposes.
+ * The actual JWT is stored in an HttpOnly cookie (inaccessible to JS).
+ */
+export function saveUser(user: AuthUser): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-export function clearAuth(): void {
-  localStorage.removeItem(TOKEN_KEY);
+/**
+ * Remove user info from localStorage.
+ * Does NOT clear the cookie — call logout() for that.
+ */
+export function clearUser(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function getUser(): LoginResponse["user"] | null {
+/**
+ * Get the currently logged-in user from localStorage.
+ * Returns null if not logged in.
+ */
+export function getUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {

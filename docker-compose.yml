@@ -1,0 +1,25 @@
+# ─── Docker Compose for Local Development ───────────────
+# Run: docker compose up -d
+# This starts PostgreSQL for the backend.
+# The backend itself runs via: npm run start:dev (for hot-reload)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comptech-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: comptech_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

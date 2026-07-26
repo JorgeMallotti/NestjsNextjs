@@ -282,6 +282,23 @@ const strings = {
     latestClaim: "Última Reclamación",
     myProfile: "Mi Perfil",
   },
+  demo: {
+    title: "Prueba la Demo",
+    description:
+      "Explora la plataforma sin crear una cuenta. Elige un rol para empezar al instante.",
+    adminLogin: "Entrar como Admin",
+    adminDesc:
+      "Acceso completo para gestionar clientes, pedidos, camiones, trabajadores y productos.",
+    clientLogin: "Entrar como Cliente",
+    clientDesc:
+      "Experimenta la plataforma desde la perspectiva de un cliente — haz pedidos, rastrea envíos y más.",
+    selectClient: "Selecciona una Empresa Demo",
+    selectClientDesc:
+      "Elige una de las empresas precargadas para ver datos personalizados e historial de pedidos.",
+    loading: "Cargando cuentas demo...",
+    noAccounts: "No hay cuentas demo disponibles",
+    orStandardLogin: "O usa el inicio de sesión estándar",
+  },
   common: {
     loading: "Cargando...",
     error: "Algo salió mal",

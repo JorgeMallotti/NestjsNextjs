@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { login, saveAuth } from "@/lib/api/auth";
+import { login, saveUser } from "@/lib/api/auth";
+import { getDemoAccounts, demoLogin } from "@/lib/api/demo";
+
+interface DemoAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "client";
+  companyName: string | null;
+  label: string;
+}
 
 export default function LoginPage() {
   const params = useParams();
@@ -21,6 +31,19 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
+  const [demoLoading, setDemoLoading] = useState(true);
+  const [demoLoggingIn, setDemoLoggingIn] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDemoAccounts()
+      .then((accounts) =>
+        setDemoAccounts(accounts.filter((a) => a.role === "client")),
+      )
+      .catch(() => {})
+      .finally(() => setDemoLoading(false));
+  }, []);
 
   const validate = (): boolean => {
     let valid = true;
@@ -56,7 +79,7 @@ export default function LoginPage() {
 
     try {
       const result = await login(email, password);
-      saveAuth(result.accessToken, result.user);
+      saveUser(result.user);
       router.push(`/${lang}/client/dashboard`);
     } catch (err) {
       setError(
@@ -66,14 +89,25 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemoLogin = async (account: DemoAccount) => {
+    setDemoLoggingIn(account.id);
+    try {
+      const result = await demoLogin(account.id);
+      saveUser(result.user);
+      router.push(`/${lang}/client/dashboard`);
+    } catch {
+      setDemoLoggingIn(null);
+    }
+  };
+
   return (
     <motion.div
-      className="flex min-h-screen items-center justify-center bg-muted px-4"
+      className="flex min-h-screen items-center justify-center bg-muted px-4 py-12"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
     >
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         {/* Brand */}
         <div className="mb-8 text-center">
           <Link
@@ -93,6 +127,94 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {strings.login.welcomeBack}
           </p>
+        </div>
+
+        {/* Demo companies — 1-click login */}
+        {!demoLoading && demoAccounts.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-4 text-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                🚀 {strings.demo.selectClient}
+              </div>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                {strings.demo.selectClientDesc}
+              </p>
+            </div>
+            <div className="grid gap-3">
+              {demoAccounts.map((client, idx) => (
+                <motion.button
+                  key={client.id}
+                  onClick={() => handleDemoLogin(client)}
+                  disabled={demoLoggingIn !== null}
+                  className="group w-full rounded-xl border-2 border-zinc-200 bg-white p-4 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800 dark:hover:border-blue-600"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * idx }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {client.companyName ?? client.name}
+                      </div>
+                      <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                        {client.email}
+                      </div>
+                    </div>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-transform group-hover:translate-x-0.5 dark:bg-blue-900/30 dark:text-blue-400">
+                      {demoLoggingIn === client.id ? (
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-4 text-xs text-zinc-400">
+                    <span>👤 {client.name}</span>
+                    <span>📍 {(client as any).location ?? ""}</span>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex-1 border-t border-zinc-200 dark:border-zinc-700" />
+          <span className="text-xs text-zinc-400">
+            {strings.demo.orStandardLogin}
+          </span>
+          <div className="flex-1 border-t border-zinc-200 dark:border-zinc-700" />
         </div>
 
         {/* Form */}

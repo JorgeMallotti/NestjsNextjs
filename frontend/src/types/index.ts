@@ -5,13 +5,18 @@ export interface Client {
   companyName?: string;
   location: string;
   idNumber: string;
-  activationDate: string;
-  createdAt: string;
+  activationDate?: string;
+  createdAt?: string;
   isActive: boolean;
-  approvedAt: string | null;
-  deletedAt: string | null;
-  commonProducts: CommonProduct[];
+  approvedAt?: string | null;
+  deletedAt?: string | null;
+  commonProducts?: CommonProduct[];
   _count?: { orders: number; claims: number };
+  purchasesLastMonth?: number;
+  purchasesLast3Months?: number;
+  purchasesLast6Months?: number;
+  purchasesLastYear?: number;
+  totalPurchases?: number;
 }
 
 export interface CommonProduct {
@@ -25,7 +30,7 @@ export interface Truck {
   plateNumber: string;
   model: string;
   capacity: number;
-  availableCapacity: number | null;
+  availableCapacity?: number | null;
   kilometrage: number;
   status:
     | "available"
@@ -34,7 +39,7 @@ export interface Truck {
     | "returning"
     | "under_repair"
     | "disabled";
-  currentDestination: string | null;
+  currentDestination?: string | null;
   driver?: { id: string; name: string } | null;
   currentOrder?: { id: string; deliveryAddress: string } | null;
 }

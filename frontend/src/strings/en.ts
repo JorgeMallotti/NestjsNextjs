@@ -281,6 +281,23 @@ const strings = {
     latestClaim: "Latest Claim",
     myProfile: "My Profile",
   },
+  demo: {
+    title: "Try the Demo",
+    description:
+      "Explore the platform without creating an account. Choose a role to get started instantly.",
+    adminLogin: "Login as Admin",
+    adminDesc:
+      "Full access to manage clients, orders, trucks, workers and products.",
+    clientLogin: "Login as Client",
+    clientDesc:
+      "Experience the platform from a client's perspective — place orders, track shipments, and more.",
+    selectClient: "Select a Demo Company",
+    selectClientDesc:
+      "Choose one of the pre-loaded companies to see customized data and order history.",
+    loading: "Loading demo accounts...",
+    noAccounts: "No demo accounts available",
+    orStandardLogin: "Or use standard login",
+  },
   common: {
     loading: "Loading...",
     error: "Something went wrong",

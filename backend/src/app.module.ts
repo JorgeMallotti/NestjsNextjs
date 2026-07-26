@@ -11,6 +11,7 @@ import { WorkersModule } from './modules/workers/workers.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ClaimsModule } from './modules/claims/claims.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { DemoModule } from './modules/demo/demo.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -25,6 +26,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     OrdersModule,
     ClaimsModule,
     AuditModule,
+    DemoModule,
   ],
   controllers: [AppController],
   providers: [

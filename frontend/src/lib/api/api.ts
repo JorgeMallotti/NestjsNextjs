@@ -1,27 +1,27 @@
 /**
  * Base API client configuration.
- * All requests include the JWT token from localStorage.
+ * JWT is sent automatically via HttpOnly cookie — no manual token handling needed.
+ * All requests include credentials for cross-origin cookie support.
  */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 /**
- * Get the Authorization headers from the stored JWT token.
+ * Fetch options shared across all requests.
+ * - credentials: 'include' ensures the HttpOnly auth cookie is sent automatically.
+ * - Content-Type header for JSON requests.
  */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("auth_token");
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
-
-/**
- * Base headers for every request.
- */
-function baseHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    ...getAuthHeaders(),
+function fetchOptions(method: string, body?: unknown): RequestInit {
+  const options: RequestInit = {
+    method,
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
   };
+
+  if (body !== undefined) {
+    options.body = JSON.stringify(body);
+  }
+
+  return options;
 }
 
 /**
@@ -40,16 +40,16 @@ export async function extractError(res: Response): Promise<string> {
 /**
  * Extract paginated data — returns `response.data` if present, otherwise the whole body.
  */
-function unwrapData<T>(body: T | { data: T }): T {
+function unwrapData<T>(body: unknown): T {
   if (
     body &&
     typeof body === "object" &&
     "data" in body &&
-    Array.isArray((body as any).data)
+    Array.isArray((body as Record<string, unknown>).data)
   ) {
-    return (body as any).data as T;
+    return (body as Record<string, unknown>).data as T;
   }
-  return body;
+  return body as T;
 }
 
 /* --- HTTP helpers ------------------------------------------------- */
@@ -60,16 +60,7 @@ async function request<T>(
   body?: unknown,
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const options: RequestInit = {
-    method,
-    headers: baseHeaders(),
-  };
-
-  if (body !== undefined) {
-    options.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(url, options);
+  const res = await fetch(url, fetchOptions(method, body));
 
   if (!res.ok) {
     const message = await extractError(res);
@@ -93,17 +84,14 @@ export const api = {
    * Unlike `api.get`, this does NOT unwrap the `data` array from paginated responses.
    */
   getPaginated: <T>(path: string): Promise<T> => {
-    const url = `${API_BASE}${path}`;
-    const options: RequestInit = {
-      method: "GET",
-      headers: baseHeaders(),
-    };
-    return fetch(url, options).then(async (res) => {
-      if (!res.ok) {
-        const message = await extractError(res);
-        throw new Error(message);
-      }
-      return res.json();
-    });
+    return fetch(`${API_BASE}${path}`, fetchOptions("GET")).then(
+      async (res) => {
+        if (!res.ok) {
+          const message = await extractError(res);
+          throw new Error(message);
+        }
+        return res.json();
+      },
+    );
   },
 };

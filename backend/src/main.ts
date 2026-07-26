@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+const cookieParser = require('cookie-parser');
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -13,7 +14,10 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // CORS restricted to frontend origin
+  // Parse cookies (needed for HttpOnly JWT cookie)
+  app.use(cookieParser());
+
+  // CORS restricted to frontend origin with credentials (for cookies)
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
     credentials: true,

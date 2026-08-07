@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users (Admin & Client) ─────────────────────────────
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  name            String
+  role            String   @default("client") // "admin" | "client"
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Client-specific fields (null for admins)
+  companyName     String?
+  location        String?
+  idNumber        String?
+  activationDate  DateTime?
+  approvedAt      DateTime?      // null = pending approval, Date = approved
+  deletedAt       DateTime?      // Soft delete — null = active, Date = deleted
+
+  // Relations
+  orders          Order[]       @relation("ClientOrders")
+  claims          Claim[]
+  commonProducts  CommonProduct[]
+  auditLogs       AuditLog[]     @relation("AuditLogPerformedBy")
+
+  // Order status tracking (who confirmed/shipped/delivered/cancelled)
+  confirmedOrders   Order[]   @relation("OrderConfirmedBy")
+  shippedOrders     Order[]   @relation("OrderShippedBy")
+  deliveredOrders   Order[]   @relation("OrderDeliveredBy")
+  cancelledOrders   Order[]   @relation("OrderCancelledBy")
+}
+
+// ─── Products ───────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  brand     String
+  type      String   // CPU, GPU, RAM, Storage, etc.
+  price     Float
+  weight    Float    @default(0) // Weight in kg for truck capacity calculation
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orderItems  OrderItem[]
+  claims      Claim[]
+}
+
+// ─── Trucks ─────────────────────────────────────────────
+
+model Truck {
+  id                  String   @id @default(cuid())
+  plateNumber         String   @unique
+  model               String
+  capacity            Float    // kg
+  availableCapacity   Float?   // Remaining capacity when loading (kg)
+  kilometrage         Float
+  status              String   @default("available") // available | loading | shipping | returning | under_repair | disabled
+  currentDestination  String?  // Destination address for current trip
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  currentOrder        Order?    @relation("CurrentTruckOrder", fields: [currentOrderId], references: [id])
+  currentOrderId      String?   @unique
+  driver              Worker?   @relation(fields: [driverId], references: [id])
+  driverId            String?
+}
+
+// ─── Workers ────────────────────────────────────────────
+
+model Worker {
+  id        String   @id @default(cuid())
+  name      String
+  position  String
+  startDate DateTime
+  status    String   @default("available") // available | driving | on_vacation | sick_leave | inactive
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  trucks    Truck[]
+}
+
+// ─── Orders ─────────────────────────────────────────────
+
+model Order {
+  id                   String       @id @default(cuid())
+  clientId             String
+  client               User         @relation("ClientOrders", fields: [clientId], references: [id])
+  items                OrderItem[]
+  claims               Claim[]
+  totalAmount          Float
+  status               String       @default("pending_approval") // pending_approval | confirmed | shipped | delivered | cancelled
+  deliveryAddress      String       // Mandatory — where the client wants delivery
+  estimatedDeliveryDate DateTime?
+  adminNote            String?      // Optional message from admin when approving/rejecting
+  truck                Truck?       @relation("CurrentTruckOrder")
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  // ── Status tracking (who did what and when) ──────────
+  confirmedById       String?
+  confirmedBy         User?        @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedAt         DateTime?
+  shippedById         String?
+  shippedBy           User?        @relation("OrderShippedBy", fields: [shippedById], references: [id])
+  shippedAt           DateTime?
+  deliveredById       String?
+  deliveredBy         User?        @relation("OrderDeliveredBy", fields: [deliveredById], references: [id])
+  deliveredAt         DateTime?
+  cancelledById       String?
+  cancelledBy         User?        @relation("OrderCancelledBy", fields: [cancelledById], references: [id])
+  cancelledAt         DateTime?
+  cancelledReason     String?
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String
+  quantity    Int
+  unitPrice   Float
+
+  @@unique([orderId, productId])
+}
+
+// ─── Claims ─────────────────────────────────────────────
+
+model Claim {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      User     @relation(fields: [clientId], references: [id])
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  productName String
+  reason      String
+  description String
+  status      String   @default("pending") // pending | in_process | approved | refused
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Common Products (per-client frequency data) ────────
+
+model CommonProduct {
+  id        String @id @default(cuid())
+  clientId  String
+  client    User   @relation(fields: [clientId], references: [id])
+  type      String
+  quantity  Int
+  frequency String // weekly | biweekly | monthly | quarterly
+
+  @@unique([clientId, type])
+}
+
+// ─── Audit Log ──────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  entityType  String   // "worker" | "truck" | "client" | "order" | "product" | "claim"
+  entityId    String   // The ID of the affected record
+  action      String   // "create" | "update" | "delete" | "soft_delete" | "restore" | "confirm" | "ship" | "deliver" | "cancel"
+  oldValues   String?  // JSON — previous state before the change (nullable for creates)
+  newValues   String?  // JSON — new state after the change (nullable for deletes)
+  reason      String?  // Justification for the change (required for sensitive edits/deletions)
+  performedById String
+  performedBy User     @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
+  createdAt   DateTime @default(now())
+}

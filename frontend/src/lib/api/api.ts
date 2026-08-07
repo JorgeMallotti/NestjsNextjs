@@ -1,9 +1,11 @@
 /**
  * Base API client configuration.
  * JWT is sent automatically via HttpOnly cookie — no manual token handling needed.
- * All requests include credentials for cross-origin cookie support.
+ * All requests include credentials for cookie support.
+ * The default is a relative /api path — Next.js rewrites it to the backend
+ * (see next.config.ts). Override with NEXT_PUBLIC_API_URL if needed.
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 /**
  * Fetch options shared across all requests.

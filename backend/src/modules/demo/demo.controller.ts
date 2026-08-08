@@ -8,6 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { DemoService } from './demo.service';
 import { Public } from '../../common/decorators/public.decorator';
 
@@ -21,6 +22,8 @@ const COOKIE_OPTIONS = {
 };
 
 class DemoLoginDto {
+  @IsString()
+  @IsNotEmpty()
   userId: string;
 }
 

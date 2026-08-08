@@ -91,9 +91,9 @@ The MVC pattern was chosen for three fundamental reasons:
 | **NestJS**            | ^11.0.1 | Application framework (Controllers, Modules) |
 | **Prisma ORM**        | ^7.8.0  | Database ORM with migrations                 |
 | **PostgreSQL**        | —       | Relational database                          |
-| **Passport/JWT**      | ^0.7.0  | Authentication (JWT in HttpOnly cookies)      |
-| **cookie-parser**     | ^1.4.7  | Cookie parsing for JWT extraction             |
-| **bcrypt**            | ^6.0.0  | Password hashing (salt rounds ≥ 12)           |
+| **Passport/JWT**      | ^0.7.0  | Authentication (JWT in HttpOnly cookies)     |
+| **cookie-parser**     | ^1.4.7  | Cookie parsing for JWT extraction            |
+| **bcrypt**            | ^6.0.0  | Password hashing (salt rounds ≥ 12)          |
 | **class-validator**   | ^0.15.1 | DTO validation decorators                    |
 | **Helmet**            | ^8.2.0  | Security headers                             |
 | **@nestjs/throttler** | ^6.5.0  | Rate limiting on public endpoints            |
@@ -325,12 +325,12 @@ Open **http://localhost:3000** in your browser. You'll be redirected to `/en` (E
 
 After running `npx prisma db seed`, you can log in instantly with:
 
-| Role | Email | Password | Company |
-|---|---|---|---|
-| **Admin** | `admin@comptechpro.com` | `demo123456` | CompTech Pro |
-| **Client** | `contacto@bytewise.pt` | `demo123456` | ByteWise Lda. (Porto) |
-| **Client** | `geral@inovadata.pt` | `demo123456` | InovaData SA (Lisboa) |
-| **Client** | `compras@datacore.pt` | `demo123456` | DataCore Solutions (Aveiro) |
+| Role       | Email                   | Password     | Company                     |
+| ---------- | ----------------------- | ------------ | --------------------------- |
+| **Admin**  | `admin@comptechpro.com` | `demo123456` | CompTech Pro                |
+| **Client** | `contacto@bytewise.pt`  | `demo123456` | ByteWise Lda. (Porto)       |
+| **Client** | `geral@inovadata.pt`    | `demo123456` | InovaData SA (Lisboa)       |
+| **Client** | `compras@datacore.pt`   | `demo123456` | DataCore Solutions (Aveiro) |
 
 ### 1-Click Demo Login
 
@@ -375,34 +375,34 @@ npm run lint             # Lint check
 
 All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unless marked as public.
 
-| Method | Endpoint                            | Access       | Description                       |
-| ------ | ----------------------------------- | ------------ | --------------------------------- |
-| POST   | `/api/auth/register`                | Public       | Register a new client             |
-| POST   | `/api/auth/login`                   | Public       | Client login (sets HttpOnly cookie) |
-| POST   | `/api/auth/login/admin`             | Public       | Admin login (sets HttpOnly cookie) |
-| POST   | `/api/auth/logout`                  | Public       | Clear auth cookie                 |
-| GET    | `/api/auth/profile`                 | Authenticated| Get current user profile          |
-| GET    | `/api/demo/accounts`                | Public       | List demo accounts (1-click login)|
-| POST   | `/api/demo/login`                   | Public       | 1-click demo login (sets cookie)  |
-| POST   | `/api/demo/reset`                   | Public*      | Reset database to seed state (*protected by RESET_SECRET) |
-| GET    | `/api/audit`                        | Admin        | View full audit log               |
-| GET    | `/api/orders`                       | Admin        | List all orders                   |
-| POST   | `/api/orders`                       | Admin/Client | Create an order                   |
-| PATCH  | `/api/orders/:id`                   | Admin        | Update order (approve with truck) |
-| PATCH  | `/api/orders/:id/deliver`           | Client       | Mark order as delivered           |
-| GET    | `/api/trucks`                       | Admin        | List all trucks                   |
-| GET    | `/api/trucks/available-for-loading` | Admin        | Trucks available/loading          |
-| POST   | `/api/trucks/:id/ship`              | Admin        | Ship truck with driver            |
-| POST   | `/api/trucks/:id/return`            | Admin        | Return truck to factory           |
-| GET    | `/api/workers`                      | Admin        | List all workers                  |
-| GET    | `/api/workers/available-drivers`    | Admin        | Workers available to drive        |
-| GET    | `/api/products`                     | Admin        | List all products                 |
-| GET    | `/api/clients`                      | Admin        | List all clients                  |
-| PATCH  | `/api/clients/:id/approve`          | Admin        | Approve a client                  |
-| PATCH  | `/api/clients/:id/restore`          | Admin        | Restore soft-deleted client       |
-| DELETE | `/api/clients/:id/permanent`        | Admin        | Permanently delete client         |
-| GET    | `/api/claims`                       | Admin        | List all claims                   |
-| POST   | `/api/claims`                       | Client       | File a claim                      |
+| Method | Endpoint                            | Access        | Description                                                |
+| ------ | ----------------------------------- | ------------- | ---------------------------------------------------------- |
+| POST   | `/api/auth/register`                | Public        | Register a new client                                      |
+| POST   | `/api/auth/login`                   | Public        | Client login (sets HttpOnly cookie)                        |
+| POST   | `/api/auth/login/admin`             | Public        | Admin login (sets HttpOnly cookie)                         |
+| POST   | `/api/auth/logout`                  | Public        | Clear auth cookie                                          |
+| GET    | `/api/auth/profile`                 | Authenticated | Get current user profile                                   |
+| GET    | `/api/demo/accounts`                | Public        | List demo accounts (1-click login)                         |
+| POST   | `/api/demo/login`                   | Public        | 1-click demo login (sets cookie)                           |
+| POST   | `/api/demo/reset`                   | Public\*      | Reset database to seed state (\*protected by RESET_SECRET) |
+| GET    | `/api/audit`                        | Admin         | View full audit log                                        |
+| GET    | `/api/orders`                       | Admin         | List all orders                                            |
+| POST   | `/api/orders`                       | Admin/Client  | Create an order                                            |
+| PATCH  | `/api/orders/:id`                   | Admin         | Update order (approve with truck)                          |
+| PATCH  | `/api/orders/:id/deliver`           | Client        | Mark order as delivered                                    |
+| GET    | `/api/trucks`                       | Admin         | List all trucks                                            |
+| GET    | `/api/trucks/available-for-loading` | Admin         | Trucks available/loading                                   |
+| POST   | `/api/trucks/:id/ship`              | Admin         | Ship truck with driver                                     |
+| POST   | `/api/trucks/:id/return`            | Admin         | Return truck to factory                                    |
+| GET    | `/api/workers`                      | Admin         | List all workers                                           |
+| GET    | `/api/workers/available-drivers`    | Admin         | Workers available to drive                                 |
+| GET    | `/api/products`                     | Admin         | List all products                                          |
+| GET    | `/api/clients`                      | Admin         | List all clients                                           |
+| PATCH  | `/api/clients/:id/approve`          | Admin         | Approve a client                                           |
+| PATCH  | `/api/clients/:id/restore`          | Admin         | Restore soft-deleted client                                |
+| DELETE | `/api/clients/:id/permanent`        | Admin         | Permanently delete client                                  |
+| GET    | `/api/claims`                       | Admin         | List all claims                                            |
+| POST   | `/api/claims`                       | Client        | File a claim                                               |
 
 ---
 
@@ -474,6 +474,7 @@ All endpoints are prefixed with `/api` and are protected by `JwtAuthGuard` unles
 **Current state:** JWT access tokens are stored in **HttpOnly cookies** (migrated from localStorage). JavaScript cannot access the token, which protects against XSS attacks.
 
 **Future improvement:** Implement a **refresh token pattern**:
+
 1. Short-lived access token (e.g., 15 min) stored in an HttpOnly cookie
 2. Long-lived refresh token (e.g., 7 days) stored in a separate HttpOnly cookie
 3. When the access token expires, the backend uses the refresh token to issue a new one automatically
@@ -519,14 +520,14 @@ docker compose down     # Stop PostgreSQL
 3. Add the **PostgreSQL** plugin (Railway injects `DATABASE_URL` automatically)
 4. Set environment variables:
 
-   | Variable | Value |
-   |---|---|
-   | `JWT_SECRET` | Generate with `openssl rand -base64 64` |
-   | `JWT_EXPIRES_IN` | `7d` |
-   | `RESET_SECRET` | Generate with `openssl rand -hex 32` |
-   | `FRONTEND_URL` | Your Vercel URL (e.g., `https://demo.vercel.app`) |
-   | `AUTH_BYPASS` | `false` |
-   | `NODE_ENV` | `production` |
+   | Variable         | Value                                             |
+   | ---------------- | ------------------------------------------------- |
+   | `JWT_SECRET`     | Generate with `openssl rand -base64 64`           |
+   | `JWT_EXPIRES_IN` | `7d`                                              |
+   | `RESET_SECRET`   | Generate with `openssl rand -hex 32`              |
+   | `FRONTEND_URL`   | Your Vercel URL (e.g., `https://demo.vercel.app`) |
+   | `AUTH_BYPASS`    | `false`                                           |
+   | `NODE_ENV`       | `production`                                      |
 
 5. Deploy, then open **Railway Console** and run:
 
@@ -541,8 +542,8 @@ docker compose down     # Stop PostgreSQL
 2. Set **Root Directory** to `frontend`
 3. Set environment variable:
 
-   | Variable | Value |
-   |---|---|
+   | Variable              | Value                                         |
+   | --------------------- | --------------------------------------------- |
    | `NEXT_PUBLIC_API_URL` | `https://your-railway-app.up.railway.app/api` |
 
 4. Deploy

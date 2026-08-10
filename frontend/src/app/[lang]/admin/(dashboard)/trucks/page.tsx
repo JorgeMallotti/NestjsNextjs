@@ -54,6 +54,7 @@ export default function TrucksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<TruckFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -94,6 +95,7 @@ export default function TrucksPage() {
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFormError("");
     setModalOpen(true);
   };
 
@@ -106,11 +108,13 @@ export default function TrucksPage() {
       kilometrage: truck.kilometrage,
       status: truck.status,
     });
+    setFormError("");
     setModalOpen(true);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setFormError("");
     try {
       if (editingId) {
         const updated = await updateTruck(editingId, form);
@@ -122,8 +126,9 @@ export default function TrucksPage() {
         setTrucks((prev) => [...prev, created]);
       }
       setModalOpen(false);
-    } catch {
-      // Error handled silently
+    } catch (err) {
+      // Show the backend reason (e.g. disallowed status transition)
+      setFormError(err instanceof Error ? err.message : strings.common.error);
     } finally {
       setSaving(false);
     }
@@ -136,16 +141,6 @@ export default function TrucksPage() {
     setDeleteId(null);
     try {
       await deleteTruck(deleteId);
-    } catch {
-      setTrucks(prev);
-    }
-  };
-
-  const handleStatusChange = async (id: string, status: Truck["status"]) => {
-    const prev = trucks;
-    setTrucks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-    try {
-      await updateTruck(id, { status });
     } catch {
       setTrucks(prev);
     }
@@ -166,6 +161,35 @@ export default function TrucksPage() {
     truck.status === "shipping" ||
     truck.status === "returning";
 
+  /**
+   * Next allowed statuses for a truck (mirrors the backend
+   * ALLOWED_STATUS_TRANSITIONS). New trucks can only be created as
+   * available / under_repair / disabled — loading comes from the orders flow.
+   */
+  const getNextStatuses = (
+    status: Truck["status"] | null,
+  ): Truck["status"][] => {
+    if (!status) return ["available", "under_repair", "disabled"];
+    switch (status) {
+      case "available":
+        return ["available", "under_repair", "disabled"];
+      case "loading":
+        return ["loading", "shipping", "available"];
+      case "under_repair":
+        return ["under_repair", "available"];
+      case "disabled":
+        return ["disabled", "available"];
+      default:
+        return [status]; // shipping / returning — in motion, cannot be edited
+    }
+  };
+
+  /** A truck cannot be deleted if it is in use or in motion (incl. loading). */
+  const canDeleteTruck = (truck: Truck) =>
+    !isTruckInMotion(truck) &&
+    !truck.currentOrder &&
+    truck.status !== "loading";
+
   /** Derive whether the currently-editing truck is in motion */
   const editingTruck = editingId
     ? trucks.find((t) => t.id === editingId)
@@ -173,6 +197,7 @@ export default function TrucksPage() {
   const isEditingInMotion = editingTruck
     ? isTruckInMotion(editingTruck)
     : false;
+  const statusOptions = getNextStatuses(editingTruck?.status ?? null);
 
   if (loading) {
     return (
@@ -312,52 +337,7 @@ export default function TrucksPage() {
                       >
                         {strings.common.edit}
                       </Button>
-                      {isTruckInMotion(truck) ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-amber-600 dark:text-amber-400"
-                          title="Truck is in motion — use Ship/Return workflow to change status"
-                        >
-                          🔒 {strings.trucks.status}
-                        </span>
-                      ) : (
-                        <div className="relative group">
-                          <Button variant="ghost" size="sm">
-                            {strings.common.filter}
-                          </Button>
-                          <div className="absolute right-0 top-full z-10 mt-1 hidden w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg group-hover:block dark:border-zinc-700 dark:bg-zinc-800">
-                            {(
-                              [
-                                "available",
-                                "loading",
-                                "shipping",
-                                "returning",
-                                "under_repair",
-                                "disabled",
-                              ] as Truck["status"][]
-                            ).map((s) => (
-                              <button
-                                key={s}
-                                onClick={() => handleStatusChange(truck.id, s)}
-                                className={`w-full rounded-md px-3 py-1.5 text-left text-xs transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700 ${
-                                  truck.status === s
-                                    ? "bg-zinc-100 font-medium dark:bg-zinc-700"
-                                    : ""
-                                }`}
-                              >
-                                {statusLabel[s]}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {isTruckInMotion(truck) || truck.currentOrder ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-400"
-                          title="Cannot delete a truck that is in use"
-                        >
-                          🚫 {strings.common.delete}
-                        </span>
-                      ) : (
+                      {canDeleteTruck(truck) ? (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -366,6 +346,13 @@ export default function TrucksPage() {
                         >
                           {strings.common.delete}
                         </Button>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-400"
+                          title="Cannot delete a truck that is in use or in motion"
+                        >
+                          🚫 {strings.common.delete}
+                        </span>
                       )}
                     </div>
                   </Td>
@@ -388,6 +375,15 @@ export default function TrucksPage() {
               ⚠️ This truck is currently in motion (driver assigned, shipping,
               or returning). Most fields cannot be changed. Use the Ship/Return
               workflow to change its status.
+            </div>
+          )}
+
+          {formError && (
+            <div
+              role="alert"
+              className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300"
+            >
+              {formError}
             </div>
           )}
 
@@ -440,12 +436,11 @@ export default function TrucksPage() {
               disabled={isEditingInMotion}
               className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             >
-              <option value="available">{strings.trucks.available}</option>
-              <option value="loading">{strings.trucks.loading}</option>
-              <option value="shipping">{strings.trucks.shipping}</option>
-              <option value="returning">{strings.trucks.returning}</option>
-              <option value="under_repair">{strings.trucks.underRepair}</option>
-              <option value="disabled">{strings.trucks.disabled}</option>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>
+                  {statusLabel[s]}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">

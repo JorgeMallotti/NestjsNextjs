@@ -229,19 +229,6 @@ export default function ClientsPage() {
                 <Th className="hidden lg:table-cell">
                   {strings.clients.location}
                 </Th>
-                <Th className="hidden lg:table-cell">
-                  {strings.clients.lastMonthPurchases}
-                </Th>
-                <Th className="hidden xl:table-cell">
-                  {strings.clients.last3MonthsPurchases}
-                </Th>
-                <Th className="hidden xl:table-cell">
-                  {strings.clients.lastYearPurchases}
-                </Th>
-                <Th>{strings.clients.email}</Th>
-                <Th className="hidden lg:table-cell">
-                  {strings.clients.location}
-                </Th>
                 <Th className="hidden lg:table-cell">{strings.orders.title}</Th>
                 <Th>{strings.common.status}</Th>
                 <Th>{strings.common.actions}</Th>
@@ -265,7 +252,7 @@ export default function ClientsPage() {
                       </p>
                     </div>
                   </Td>
-                  <Td className="text-zinc-600 dark:text-zinc-400">
+                  <Td className="hidden md:table-cell text-zinc-600 dark:text-zinc-400">
                     {client.email}
                   </Td>
                   <Td className="hidden lg:table-cell text-zinc-600 dark:text-zinc-400">

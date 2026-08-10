@@ -6,11 +6,27 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+
+/**
+ * Tracks the state of the async demo database reset.
+ */
+export interface DemoResetStatus {
+  status: 'idle' | 'running' | 'success' | 'error';
+  message: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
 
 @Injectable()
 export class DemoService {
   private readonly logger = new Logger(DemoService.name);
+
+  /** In-memory state of the last/current demo reset. */
+  private resetStatus: DemoResetStatus = {
+    status: 'idle',
+    message: 'No reset has been requested yet',
+  };
 
   constructor(
     private readonly prisma: PrismaService,
@@ -89,35 +105,69 @@ export class DemoService {
   }
 
   /**
-   * Reset the demo database — runs `prisma migrate reset --force` + seed.
-   * This wipes all data and re-seeds with fresh demo content.
+   * Returns the current state of the demo reset (idle / running / success / error).
    */
-  async resetDatabase(): Promise<{ message: string; timestamp: string }> {
-    this.logger.warn('🔄 Resetting demo database...');
+  getResetStatus(): DemoResetStatus {
+    return this.resetStatus;
+  }
 
-    try {
-      execSync(
-        'npx prisma migrate reset --force 2>&1 && npx prisma db seed 2>&1',
-        {
-          cwd: process.cwd(),
-          stdio: 'pipe',
-          timeout: 120_000, // 2 minutes
-          env: { ...process.env },
-          shell: true as unknown as string,
-        },
-      );
-
-      this.logger.log('✅ Demo database reset complete');
-
-      return {
-        message: 'Demo database reset successfully',
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      this.logger.error('❌ Demo database reset failed', error);
-      throw new InternalServerErrorException(
-        'Failed to reset demo database. Check server logs.',
-      );
+  /**
+   * Reset the demo database — runs `prisma migrate reset --force` + seed.
+   *
+   * The reset runs ASYNC in the background so the HTTP request returns
+   * immediately (202). This avoids the cron-job.org timeout (60s) that
+   * killed the old synchronous version mid-reset, leaving the DB empty.
+   *
+   * If a reset is already running, the current state is returned instead
+   * of starting a second one (single-flight guard).
+   */
+  async resetDatabase(): Promise<DemoResetStatus> {
+    if (this.resetStatus.status === 'running') {
+      return this.resetStatus;
     }
+
+    const startedAt = new Date().toISOString();
+    this.resetStatus = {
+      status: 'running',
+      message: 'Reset started — dropping and re-seeding the database',
+      startedAt,
+    };
+
+    this.logger.warn('🔄 Resetting demo database (async)...');
+
+    exec(
+      'npx prisma migrate reset --force 2>&1 && npx prisma db seed 2>&1',
+      {
+        cwd: process.cwd(),
+        timeout: 120_000, // 2 minutes
+        env: { ...process.env },
+        shell: true as unknown as string,
+      },
+      (error, stdout) => {
+        if (error) {
+          this.logger.error('❌ Demo database reset failed', {
+            message: error.message,
+            output: stdout?.slice(-2000),
+          });
+          this.resetStatus = {
+            status: 'error',
+            message: 'Reset failed — see server logs for details',
+            startedAt,
+            finishedAt: new Date().toISOString(),
+          };
+          return;
+        }
+
+        this.logger.log('✅ Demo database reset complete');
+        this.resetStatus = {
+          status: 'success',
+          message: 'Demo database reset successfully',
+          startedAt,
+          finishedAt: new Date().toISOString(),
+        };
+      },
+    );
+
+    return this.resetStatus;
   }
 }

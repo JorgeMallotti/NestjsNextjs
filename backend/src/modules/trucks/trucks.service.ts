@@ -101,9 +101,13 @@ export class TrucksService {
   /**
    * Allowed status transitions for admin direct edits.
    * Moving trucks (has driver, shipping, returning) CANNOT be edited.
+   *
+   * NOTE: `loading` is NOT reachable from `available` here — a truck can only
+   * enter `loading` by assigning an order to it from the orders flow
+   * (orders.service.ts), which guarantees every loading truck has an order.
    */
   private readonly ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
-    available: ['available', 'under_repair', 'disabled', 'loading'],
+    available: ['available', 'under_repair', 'disabled'],
     loading: ['loading', 'shipping', 'available'],
     under_repair: ['under_repair', 'available'],
     disabled: ['disabled', 'available'],
@@ -213,10 +217,14 @@ export class TrucksService {
       throw new NotFoundException('Truck not found');
     }
 
-    // ── Block deletion if truck is in use ────────────────────────
-    if (truck.driverId || truck.currentOrderId) {
+    // ── Block deletion if truck is in use or in motion ───────────
+    const inMotion = ['loading', 'shipping', 'returning'].includes(
+      truck.status,
+    );
+    if (truck.driverId || truck.currentOrderId || inMotion) {
       throw new BadRequestException(
-        'Cannot delete a truck that is currently assigned to a driver or order. ' +
+        'Cannot delete a truck that is in use (assigned to a driver/order) or ' +
+          'currently in motion (loading, shipping, or returning). ' +
           'Make sure the truck has returned and is available before deleting.',
       );
     }

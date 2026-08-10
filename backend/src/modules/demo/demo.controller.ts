@@ -6,6 +6,8 @@ import {
   Headers,
   UnauthorizedException,
   Res,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { IsNotEmpty, IsString } from 'class-validator';
@@ -61,16 +63,30 @@ export class DemoController {
    * Protected by a secret key passed via header or query.
    * Called by cron-job.org or Railway cron every 24h.
    *
+   * The reset runs in the background and the request returns 202 immediately
+   * (avoids cron timeouts). Poll GET /demo/reset/status for the result.
+   *
    * Headers:
    *   x-reset-secret: <RESET_SECRET from env>
    */
   @Public()
   @Post('reset')
+  @HttpCode(HttpStatus.ACCEPTED)
   async resetDatabase(@Headers('x-reset-secret') secret: string) {
     const expected = process.env.RESET_SECRET;
     if (expected && secret !== expected) {
       throw new UnauthorizedException('Invalid reset secret');
     }
     return this.demoService.resetDatabase();
+  }
+
+  /**
+   * Returns the current status of the demo reset.
+   * Use this to poll the async reset started by POST /demo/reset.
+   */
+  @Public()
+  @Get('reset/status')
+  getResetStatus() {
+    return this.demoService.getResetStatus();
   }
 }

@@ -299,6 +299,13 @@ const strings = {
     loading: "Cargando cuentas demo...",
     noAccounts: "No hay cuentas demo disponibles",
     orStandardLogin: "O usa el inicio de sesión estándar",
+    resetOverlayTitle: "Restaurando la demo",
+    resetOverlayText:
+      "Los datos de la demo se están restaurando. Espera unos 2 minutos.",
+    resetOverlayCheckBack:
+      "Esta página se actualizará automáticamente al terminar.",
+    resetOverlayError: "El reinicio falló. Inténtalo de nuevo.",
+    resetOverlayRetry: "Reintentar",
   },
   common: {
     loading: "Cargando...",

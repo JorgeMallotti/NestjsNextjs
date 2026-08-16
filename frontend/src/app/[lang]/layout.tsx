@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { getStrings } from "@/strings";
+import DemoResetProvider from "@/components/features/DemoResetProvider";
 
 interface LangLayoutProps {
   children: ReactNode;
@@ -27,7 +28,9 @@ export default async function LangLayout({
 
   return (
     <>
-      <div lang={lang}>{children}</div>
+      <div lang={lang}>
+        <DemoResetProvider lang={lang}>{children}</DemoResetProvider>
+      </div>
     </>
   );
 }

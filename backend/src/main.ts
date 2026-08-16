@@ -17,9 +17,17 @@ async function bootstrap() {
   // Parse cookies (needed for HttpOnly JWT cookie)
   app.use(cookieParser());
 
-  // CORS restricted to frontend origin with credentials (for cookies)
+  // CORS allowlist — comma-separated list of allowed frontend origins.
+  // Falls back to localhost:3000 (local dev) when unset.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  // Restricted to the frontend allowlist with credentials (for cookies) —
+  // NEVER "*" with credentials.
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
+    origin: corsOrigins,
     credentials: true,
   });
 

@@ -266,8 +266,10 @@ RESET_SECRET="change_me_in_production"
 # Server port (backend runs on 3001, frontend on 3000)
 PORT=3001
 
-# Frontend URL (for CORS — update to Vercel URL in production)
-FRONTEND_URL="http://localhost:3000"
+# CORS allowlist (comma-separated — update with your production origins)
+# Local:   http://localhost:3000
+# Prod:    https://demo.mallottidigital.com,https://mallottidigital.com
+CORS_ORIGINS="http://localhost:3000"
 ```
 
 > **Note:** When `AUTH_BYPASS=true`, any password is accepted during login — for local dev only.
@@ -513,23 +515,23 @@ docker compose down     # Stop PostgreSQL
 
 ## Deployment
 
-### Backend — Railway
+### Backend — Render
 
-1. Create a new project in [Railway](https://railway.app) and connect your GitHub repository
+1. Create a new project in [Render](https://render.com) and connect your GitHub repository
 2. Set **Root Directory** to `backend`
-3. Add the **PostgreSQL** plugin (Railway injects `DATABASE_URL` automatically)
+3. Create a **Render Postgres** database and link it to the service (Render injects `DATABASE_URL` automatically)
 4. Set environment variables:
 
-   | Variable         | Value                                             |
-   | ---------------- | ------------------------------------------------- |
-   | `JWT_SECRET`     | Generate with `openssl rand -base64 64`           |
-   | `JWT_EXPIRES_IN` | `7d`                                              |
-   | `RESET_SECRET`   | Generate with `openssl rand -hex 32`              |
-   | `FRONTEND_URL`   | Your Vercel URL (e.g., `https://demo.vercel.app`) |
-   | `AUTH_BYPASS`    | `false`                                           |
-   | `NODE_ENV`       | `production`                                      |
+   | Variable         | Value                                                          |
+   | ---------------- | -------------------------------------------------------------- |
+   | `JWT_SECRET`     | Generate with `openssl rand -base64 64`                        |
+   | `JWT_EXPIRES_IN` | `7d`                                                           |
+   | `RESET_SECRET`   | Generate with `openssl rand -hex 32`                           |
+   | `CORS_ORIGINS`   | `https://demo.mallottidigital.com,https://mallottidigital.com` |
+   | `AUTH_BYPASS`    | `false`                                                        |
+   | `NODE_ENV`       | `production`                                                   |
 
-5. Deploy, then open **Railway Console** and run:
+5. Deploy, then open **Render Shell** and run:
 
    ```bash
    npx prisma migrate deploy
@@ -540,11 +542,12 @@ docker compose down     # Stop PostgreSQL
 
 1. Connect your GitHub repository in [Vercel](https://vercel.com)
 2. Set **Root Directory** to `frontend`
-3. Set environment variable:
+3. Set environment variables:
 
-   | Variable              | Value                                         |
-   | --------------------- | --------------------------------------------- |
-   | `NEXT_PUBLIC_API_URL` | `https://your-railway-app.up.railway.app/api` |
+   | Variable                  | Value                               |
+   | ------------------------- | ----------------------------------- |
+   | `API_PROXY_TARGET`        | `https://your-backend.onrender.com` |
+   | `NEXT_PUBLIC_LANDING_URL` | `https://mallottidigital.com`       |
 
 4. Deploy
 
@@ -553,11 +556,11 @@ docker compose down     # Stop PostgreSQL
 Use [cron-job.org](https://cron-job.org) (free) to:
 
 1. **Keep the backend awake** — ping every 10 minutes:
-   - URL: `https://your-railway-app.up.railway.app/api/demo/accounts`
+   - URL: `https://your-backend.onrender.com/api/demo/accounts`
    - Method: `GET`
 
 2. **Reset the database every 24 hours** — restores seed data:
-   - URL: `https://your-railway-app.up.railway.app/api/demo/reset`
+   - URL: `https://your-backend.onrender.com/api/demo/reset`
    - Method: `POST`
    - Header: `x-reset-secret: <your_reset_secret>`
 

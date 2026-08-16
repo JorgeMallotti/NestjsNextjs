@@ -61,7 +61,7 @@ export class DemoController {
   /**
    * Reset the demo database to its initial seeded state.
    * Protected by a secret key passed via header or query.
-   * Called by cron-job.org or Railway cron every 24h.
+   * Called by cron-job.org or a scheduled cron every 24h.
    *
    * The reset runs in the background and the request returns 202 immediately
    * (avoids cron timeouts). Poll GET /demo/reset/status for the result.

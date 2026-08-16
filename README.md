@@ -266,8 +266,10 @@ RESET_SECRET="change_me_in_production"
 # Server port (backend runs on 3001, frontend on 3000)
 PORT=3001
 
-# Frontend URL (for CORS — update to Vercel URL in production)
-FRONTEND_URL="http://localhost:3000"
+# CORS allowlist (comma-separated — update with your production origins)
+# Local:   http://localhost:3000
+# Prod:    https://demo.mallottidigital.com,https://mallottidigital.com
+CORS_ORIGINS="http://localhost:3000"
 ```
 
 > **Note:** When `AUTH_BYPASS=true`, any password is accepted during login — for local dev only.
@@ -542,10 +544,10 @@ docker compose down     # Stop PostgreSQL
 2. Set **Root Directory** to `frontend`
 3. Set environment variables:
 
-   | Variable                  | Value                                        |
-   | ------------------------- | -------------------------------------------- |
-   | `API_PROXY_TARGET`        | `https://your-backend.onrender.com`        |
-   | `NEXT_PUBLIC_LANDING_URL` | `https://mallottidigital.com`              |
+   | Variable                  | Value                               |
+   | ------------------------- | ----------------------------------- |
+   | `API_PROXY_TARGET`        | `https://your-backend.onrender.com` |
+   | `NEXT_PUBLIC_LANDING_URL` | `https://mallottidigital.com`       |
 
 4. Deploy
 

@@ -18,12 +18,8 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // CORS allowlist — comma-separated list of allowed frontend origins.
-  // Backward compatible: falls back to FRONTEND_URL (single origin) if unset.
-  const corsOrigins = (
-    process.env.CORS_ORIGINS ??
-    process.env.FRONTEND_URL ??
-    'http://localhost:3000'
-  )
+  // Falls back to localhost:3000 (local dev) when unset.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import BackToLanding from "@/components/features/BackToLanding";
 import { login, saveUser } from "@/lib/api/auth";
 import { getDemoAccounts, demoLogin } from "@/lib/api/demo";
 
@@ -279,11 +280,12 @@ export default function LoginPage() {
           </p>
         </form>
 
-        {/* Go home — back to the role-selection landing page */}
-        <div className="mt-6 text-center">
+        {/* Back to landing + go home — back to the role-selection landing page */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <BackToLanding strings={strings} />
           <Link
             href={`/${lang}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
           >
             <svg
               className="h-4 w-4"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Strings } from "@/strings";
+import BackToLanding from "@/components/features/BackToLanding";
 
 interface SidebarProps {
   strings: Strings;
@@ -134,8 +135,9 @@ function SidebarContent({
         ))}
       </nav>
 
-      {/* Logout */}
-      <div className="border-t border-zinc-200 p-3 dark:border-zinc-700">
+      {/* Back to landing + Logout */}
+      <div className="space-y-1 border-t border-zinc-200 p-3 dark:border-zinc-700">
+        <BackToLanding strings={strings} className="w-full" />
         <Link
           href={`/${lang}/admin/login`}
           onClick={onNavClick}

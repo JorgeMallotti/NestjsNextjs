@@ -17,6 +17,7 @@ const strings = {
     placeOrder: "Place Order",
     claims: "Claims",
     auditLog: "Audit Log",
+    backToLanding: "Back to Mallotti Digital",
   },
   home: {
     title: "CompTech Pro",

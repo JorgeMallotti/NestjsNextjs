@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
+import BackToLanding from "@/components/features/BackToLanding";
 import { getDemoAccounts, demoLogin } from "@/lib/api/demo";
 import { saveUser } from "@/lib/api/auth";
 
@@ -115,6 +116,14 @@ export default function HomePage() {
           >
             {strings.home.heroDescription}
           </motion.p>
+          <motion.div
+            className="mt-8 flex justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+          >
+            <BackToLanding strings={strings} />
+          </motion.div>
         </div>
       </section>
 

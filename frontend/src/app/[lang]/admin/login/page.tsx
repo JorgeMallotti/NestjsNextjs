@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { getStrings } from "@/strings";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import BackToLanding from "@/components/features/BackToLanding";
 import { loginAdmin, saveUser } from "@/lib/api/auth";
 import { getDemoAccounts, demoLogin } from "@/lib/api/demo";
 
@@ -208,15 +209,16 @@ export default function AdminLoginPage() {
           </Button>
         </form>
 
-        {/* Back to home */}
-        <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        {/* Back to landing + home */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <BackToLanding strings={strings} />
           <Link
             href={`/${lang}`}
-            className="font-medium text-primary hover:text-primary-dark dark:text-primary-light"
+            className="text-sm font-medium text-primary hover:text-primary-dark dark:text-primary-light"
           >
             {strings.common.back} {strings.nav.home}
           </Link>
-        </p>
+        </div>
       </div>
     </motion.div>
   );

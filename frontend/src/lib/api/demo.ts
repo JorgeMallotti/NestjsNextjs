@@ -15,6 +15,15 @@ interface DemoLoginResponse {
   user: AuthUser;
 }
 
+export type DemoResetStatus = "idle" | "running" | "success" | "error";
+
+export interface DemoResetStatusResponse {
+  status: DemoResetStatus;
+  message: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
 /**
  * Fetch the list of demo accounts for 1-click login.
  */
@@ -43,5 +52,17 @@ export async function demoLogin(userId: string): Promise<DemoLoginResponse> {
     throw new Error(body.message ?? "Demo login failed");
   }
 
+  return res.json();
+}
+
+/**
+ * Fetch the current status of the demo reset.
+ * Used to poll the async reset started by POST /demo/reset.
+ */
+export async function getResetStatus(): Promise<DemoResetStatusResponse> {
+  const res = await fetch(`${API_BASE}/demo/reset/status`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch reset status");
   return res.json();
 }

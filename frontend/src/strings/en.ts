@@ -298,6 +298,13 @@ const strings = {
     loading: "Loading demo accounts...",
     noAccounts: "No demo accounts available",
     orStandardLogin: "Or use standard login",
+    resetOverlayTitle: "Restoring demo",
+    resetOverlayText:
+      "The demo data is being reset. Please wait up to 2 minutes.",
+    resetOverlayCheckBack:
+      "This page will refresh automatically when it's done.",
+    resetOverlayError: "The reset failed. Please try again.",
+    resetOverlayRetry: "Try again",
   },
   common: {
     loading: "Loading...",

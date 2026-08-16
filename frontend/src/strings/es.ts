@@ -17,6 +17,7 @@ const strings = {
     placeOrder: "Realizar Pedido",
     claims: "Reclamaciones",
     auditLog: "Registro de Auditoría",
+    backToLanding: "Volver a Mallotti Digital",
   },
   home: {
     title: "CompTech Pro",

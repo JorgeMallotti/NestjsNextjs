@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
    * no CORS in production.
    *
    * Set API_PROXY_TARGET in production, e.g.:
-   *   API_PROXY_TARGET=https://comptech-backend.up.railway.app
+   *   API_PROXY_TARGET=https://your-backend.onrender.com
    */
   async rewrites() {
     const backend = process.env.API_PROXY_TARGET ?? "http://localhost:3001";

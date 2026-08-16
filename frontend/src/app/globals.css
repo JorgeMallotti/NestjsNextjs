@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme inline {
+@theme {
   --color-primary: #2563eb;
   --color-primary-dark: #1d4ed8;
   --color-primary-light: #3b82f6;
@@ -17,6 +17,10 @@
   --color-sidebar: #fafafa;
   --color-sidebar-hover: #f4f4f5;
   --color-sidebar-border: #e4e4e7;
+}
+
+/* Fonts are inlined because next/font resolves them at runtime */
+@theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
